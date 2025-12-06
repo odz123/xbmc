@@ -116,8 +116,12 @@ bool CDemuxMVC::Open(CDVDInputStream* pInput)
   CLog::Log(LOGDEBUG, "{}: MVC m2ts has {} streams", __FUNCTION__, m_pFormatContext->nb_streams);
   for (unsigned i = 0; i < m_pFormatContext->nb_streams; i++)
   {
+#ifdef AV_CODEC_ID_H264_MVC
     if (m_pFormatContext->streams[i]->codecpar->codec_id == AV_CODEC_ID_H264_MVC &&
         m_pFormatContext->streams[i]->codecpar->extradata_size > 0)
+#else
+    if (false)
+#endif
     {
       m_nStreamIndex = i;
       break;

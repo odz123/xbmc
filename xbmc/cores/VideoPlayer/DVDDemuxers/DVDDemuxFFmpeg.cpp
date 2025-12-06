@@ -1290,7 +1290,11 @@ DemuxPacket* CDVDDemuxFFmpeg::ReadInternal(bool keep)
     if (stream && m_pSSIF)
     {
       pPacket = m_pSSIF->AddPacket(pPacket);
+#ifdef AV_CODEC_ID_H264_MVC
       if (stream->type == STREAM_DATA && stream->codec == AV_CODEC_ID_H264_MVC && pPacket->iSize)
+#else
+      if (false)
+#endif
         stream = GetStream(pPacket->iStreamId);
     }
     if (!stream)
@@ -1720,6 +1724,7 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
       }
       case AVMEDIA_TYPE_VIDEO:
       {
+#ifdef AV_CODEC_ID_H264_MVC
         if (pStream->codecpar->codec_id == AV_CODEC_ID_H264_MVC)
         {
           stream = new CDemuxStream();
@@ -1728,6 +1733,7 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
           pStream->codecpar->codec_type = AVMEDIA_TYPE_DATA;
           break;
         }
+#endif
         auto st = new CDemuxStreamVideoFFmpeg(pStream);
         float fps = 0;
         stream = st;
@@ -1737,8 +1743,11 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
           st->bVFR = false;
 
         // never trust pts in avi files with h264.
-        if (m_bAVI && (pStream->codecpar->codec_id == AV_CODEC_ID_H264 ||
-                       pStream->codecpar->codec_id == AV_CODEC_ID_H264_MVC))
+        if (m_bAVI && (pStream->codecpar->codec_id == AV_CODEC_ID_H264
+#ifdef AV_CODEC_ID_H264_MVC
+                       || pStream->codecpar->codec_id == AV_CODEC_ID_H264_MVC
+#endif
+                      ))
           st->bPTSInvalid = true;
 
         AVRational r_frame_rate = pStream->r_frame_rate;
@@ -2036,12 +2045,14 @@ CDemuxStream* CDVDDemuxFFmpeg::AddStream(int streamIdx)
             st->m_3dSubtitlePlane = std::atoi(tag->value);
           }
 
+#ifdef HAVE_LIBBLURAY
           if (m_pInput->IsStreamType(DVDSTREAM_TYPE_BLURAY))
           {
             st->m_3dSubtitlePlane =
                 std::static_pointer_cast<CDVDInputStreamBluray>(m_pInput)->Get3dSubtitlePlane(
                     pStream->id);
           }
+#endif
 
           CLog::Log(LOGDEBUG, "{} - 3d subtitle plane = #{}", __FUNCTION__, st->m_3dSubtitlePlane);
           break;
@@ -2396,10 +2407,14 @@ std::string CDVDDemuxFFmpeg::GetStreamCodecName(int iStreamId)
     {
       if (stream->profile == FF_PROFILE_DTS_HD_MA)
         strName = "dtshd_ma";
+#ifdef FF_PROFILE_DTS_HD_MA_X
       else if (stream->profile == FF_PROFILE_DTS_HD_MA_X)
         strName = "dtshd_ma_x";
+#endif
+#ifdef FF_PROFILE_DTS_HD_MA_X_IMAX
       else if (stream->profile == FF_PROFILE_DTS_HD_MA_X_IMAX)
         strName = "dtshd_ma_x_imax";
+#endif
       else if (stream->profile == FF_PROFILE_DTS_HD_HRA)
         strName = "dtshd_hra";
       else
@@ -2408,11 +2423,15 @@ std::string CDVDDemuxFFmpeg::GetStreamCodecName(int iStreamId)
       return strName;
     }
 
+#ifdef FF_PROFILE_EAC3_DDP_ATMOS
     if (stream->codec == AV_CODEC_ID_EAC3 && stream->profile == FF_PROFILE_EAC3_DDP_ATMOS)
       return "eac3_ddp_atmos";
+#endif
 
+#ifdef FF_PROFILE_TRUEHD_ATMOS
     if (stream->codec == AV_CODEC_ID_TRUEHD && stream->profile == FF_PROFILE_TRUEHD_ATMOS)
       return "truehd_atmos";
+#endif
 
     const AVCodec* codec = avcodec_find_decoder(stream->codec);
     if (codec)

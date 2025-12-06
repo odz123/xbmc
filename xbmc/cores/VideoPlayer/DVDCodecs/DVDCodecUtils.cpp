@@ -81,8 +81,11 @@ double CDVDCodecUtils::NormalizeFrameduration(double frameduration, bool* match)
 
 bool CDVDCodecUtils::IsH264AnnexB(std::string format, AVStream* avstream)
 {
-  assert(avstream->codecpar->codec_id == AV_CODEC_ID_H264 ||
-         avstream->codecpar->codec_id == AV_CODEC_ID_H264_MVC);
+  assert(avstream->codecpar->codec_id == AV_CODEC_ID_H264
+#ifdef AV_CODEC_ID_H264_MVC
+         || avstream->codecpar->codec_id == AV_CODEC_ID_H264_MVC
+#endif
+  );
   if (avstream->codecpar->extradata_size < 4)
     return true;
   if (avstream->codecpar->extradata[0] == 1)
@@ -147,6 +150,7 @@ bool CDVDCodecUtils::GetH264MvcStreamIndex(AVFormatContext* fmt, int* mvcIndex)
 {
   *mvcIndex = -1;
 
+#ifdef AV_CODEC_ID_H264_MVC
   for (size_t i = 0; i < fmt->nb_streams; i++)
   {
     AVStream* st = fmt->streams[i];
@@ -162,6 +166,7 @@ bool CDVDCodecUtils::GetH264MvcStreamIndex(AVFormatContext* fmt, int* mvcIndex)
       *mvcIndex = i;
     }
   }
+#endif
 
   return *mvcIndex >= 0;
 }

@@ -796,7 +796,7 @@ JSONRPC_STATUS JSONSchemaTypeDefinition::Check(const CVariant& value,
       // are either no more schemas in the "items"
       // array or no more elements in the value's array
       unsigned int arrayIndex;
-      for (arrayIndex = 0; arrayIndex < std::min(items.size(), value.size()); arrayIndex++)
+      for (arrayIndex = 0; arrayIndex < std::min(items.size(), static_cast<size_t>(value.size())); arrayIndex++)
       {
         JSONRPC_STATUS status = items.at(arrayIndex)->Check(value[arrayIndex], outputValue[arrayIndex], errorData["property"]);
         if (status != OK)
