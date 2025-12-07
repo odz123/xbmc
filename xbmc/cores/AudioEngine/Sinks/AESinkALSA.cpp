@@ -769,7 +769,9 @@ bool CAESinkALSA::Initialize(AEAudioFormat &format, std::string &device)
       }
     }
 
+#if defined(HAS_LIBAMCODEC)
     aml_set_audio_passthrough(m_passthrough);
+#endif
     aml_configure_simple_control(device, codec);
   }
 

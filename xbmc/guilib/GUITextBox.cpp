@@ -215,7 +215,7 @@ void CGUITextBox::Render()
     {
       if (m_font)
       {
-        float textHeight = m_font->GetTextHeight(std::min(m_lines.size(), m_itemsPerPage));
+        float textHeight = m_font->GetTextHeight(std::min(m_lines.size(), static_cast<size_t>(m_itemsPerPage)));
 
         if (textHeight <= m_renderHeight)
           posY += (m_renderHeight - textHeight) * 0.5f;
