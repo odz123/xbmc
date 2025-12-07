@@ -113,6 +113,7 @@ std::shared_ptr<CDVDOverlaySpu> CDVDDemuxSPU::AddData(uint8_t* data, int iSize, 
       return nullptr;
     }
     pSPUData->data = tmpptr;
+    pSPUData->iAllocatedSize = ALIGN(pSPUData->iSize + iSize, 0x4000);
   }
 
   if (!pSPUData->data)
