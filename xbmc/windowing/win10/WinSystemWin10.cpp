@@ -393,7 +393,7 @@ void CWinSystemWin10::UpdateResolutions()
   float refreshRate;
   int w = details->ScreenWidth;
   int h = details->ScreenHeight;
-  uint32_t dwFlags = details->Interlaced ? D3DPRESENTFLAG_INTERLACED : 0;;
+  uint32_t dwFlags = details->Interlaced ? D3DPRESENTFLAG_INTERLACED : 0;
 
   if (details->RefreshRate == 59 || details->RefreshRate == 29 || details->RefreshRate == 23)
     refreshRate = static_cast<float>(details->RefreshRate + 1) / 1.001f;
