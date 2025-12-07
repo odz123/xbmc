@@ -1157,7 +1157,7 @@ int vp9_update_frame_header(am_packet_t& pkt)
     else if (old_header > fdata + 16 + framesize)
     {
       logM(LOGDEBUG, "AMLCodec", "data has gaps,set to 0");
-      memset(fdata + 16 + framesize, 0, (old_header - fdata + 16 + framesize));
+      memset(fdata + 16 + framesize, 0, old_header - fdata - 16 - framesize);
     }
     else if (old_header < fdata + 16 + framesize)
       logM(LOGDEBUG, "AMLCodec", "ERROR!!! data over writed!!!! over write {:d}",
