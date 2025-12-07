@@ -163,6 +163,7 @@ void CGUIDialogProgress::SetPercentage(int iPercentage)
   if (iPercentage < 0) iPercentage = 0;
   if (iPercentage > 100) iPercentage = 100;
 
+  std::lock_guard lock(m_section);
   if (iPercentage != m_percentage)
     MarkDirtyRegion();
 
@@ -171,19 +172,27 @@ void CGUIDialogProgress::SetPercentage(int iPercentage)
 
 void CGUIDialogProgress::SetProgressMax(int iMax)
 {
+  std::lock_guard lock(m_section);
   m_iMax=iMax;
   m_iCurrent=0;
 }
 
 void CGUIDialogProgress::SetProgressAdvance(int nSteps/*=1*/)
 {
-  m_iCurrent+=nSteps;
+  int percentage = -1;
+  {
+    std::lock_guard lock(m_section);
+    m_iCurrent+=nSteps;
 
-  if (m_iCurrent>m_iMax)
-    m_iCurrent=0;
+    if (m_iCurrent>m_iMax)
+      m_iCurrent=0;
 
-  if (m_iMax > 0)
-    SetPercentage((m_iCurrent*100)/m_iMax);
+    if (m_iMax > 0)
+      percentage = (m_iCurrent*100)/m_iMax;
+  }
+
+  if (percentage >= 0)
+    SetPercentage(percentage);
 }
 
 bool CGUIDialogProgress::Abort()
