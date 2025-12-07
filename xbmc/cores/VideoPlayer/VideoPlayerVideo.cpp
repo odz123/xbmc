@@ -592,13 +592,18 @@ void CVideoPlayerVideo::Process()
       if (iDropDirective & DROP_DROPPED)
       {
         m_iDroppedFrames++;
-        m_ptsTracker.Flush();
+        // Don't flush the PTS tracker on individual dropped frames - this destroys
+        // frame rate pattern detection and causes incorrect timing calculations.
+        // Only flush when there's a true discontinuity (handled elsewhere).
       }
       if (m_messageQueue.GetDataSize() == 0 || m_speed < 0)
       {
         bRequestDrop = false;
         m_iDroppedRequest = 0;
         m_iLateFrames = 0;
+        // Reset drop counter when buffer is empty to prevent indefinite accumulation
+        // that corrupts playback statistics and affects frame dropping decisions.
+        m_iDroppedFrames = 0;
       }
 
       int codecControl = 0;

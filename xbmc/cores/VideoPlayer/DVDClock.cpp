@@ -227,6 +227,10 @@ void CDVDClock::Discontinuity(double clock, double absolute)
   m_bReset = false;
   m_systemAdjust = 0;
   m_speedAdjust = 0;
+  // Reset m_lastSystemTime to prevent clock drift after discontinuity.
+  // Without this, the next GetClock() call would calculate a large time delta
+  // that corrupts the system adjustment, causing A/V desync.
+  m_lastSystemTime = m_videoRefClock->GetTime();
 }
 
 void CDVDClock::SetMaxSpeedAdjust(double speed)
@@ -299,6 +303,9 @@ double CDVDClock::SystemToPlaying(int64_t system)
     m_systemAdjust = 0;
     m_speedAdjust = 0;
     m_vSyncAdjust = 0;
+    // Reset m_lastSystemTime to the current system time to prevent clock jumps.
+    // This ensures the next GetClock() speed adjustment calculation starts fresh.
+    m_lastSystemTime = system;
     m_bReset = false;
   }
 
