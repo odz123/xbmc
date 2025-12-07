@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python3
 
 import os
 import os.path
@@ -79,7 +79,7 @@ def ResolveErrors():
                     first = 0
                 else:
                     first = elements[0]
-                if Errors.has_key(first):
+                if first in Errors:
                     first = Errors[first]
                 if not type(first) is str:
                     second = int(elements[1])
@@ -96,32 +96,30 @@ def AnalyzeErrorCodes(file):
     input.close()
     
 def ScanErrorCodes(top):
-    print ERROR_MAP_HEADER
-    
+    print(ERROR_MAP_HEADER)
+
     for root, dirs, files in os.walk(top):
         for file in files:
             if FilePatternH.match(file):
                  AnalyzeErrorCodes(os.path.join(root, file))
-        
+
     ResolveErrors()
     for key in Errors:
-        #print key,"==>",Errors[key]
+        #print(key,"==>",Errors[key])
         if (key.find("ERROR_BASE") > 1): continue
-        if Codes.has_key(Errors[key]):
-            raise "duplicate error code: "+ str(key) +" --> " + str(Errors[key]) + "=" + Codes[Errors[key]]
+        if Errors[key] in Codes:
+            raise Exception("duplicate error code: "+ str(key) +" --> " + str(Errors[key]) + "=" + Codes[Errors[key]])
         Codes[Errors[key]] = key
-        
-    sorted_keys = Codes.keys()
-    sorted_keys.sort()
-    sorted_keys.reverse()
+
+    sorted_keys = sorted(Codes.keys(), reverse=True)
     last = 0
     for code in sorted_keys:
         #if code != last-1:
-        #    print 
-        print '        case %s: return "%s";' % (Codes[code],Codes[code])
+        #    print()
+        print('        case %s: return "%s";' % (Codes[code],Codes[code]))
         last = code
-    
-    print ERROR_MAP_FOOTER
+
+    print(ERROR_MAP_FOOTER)
     
 ####################################################
 # main
@@ -135,10 +133,10 @@ while len(sys.argv):
     if top == None:
         top = arg
     else:
-        raise "unexpected argument " + arg
+        raise Exception("unexpected argument " + arg)
 
 if top is None:
-    print "GenErrorMap.py <directory-root>"
+    print("GenErrorMap.py <directory-root>")
     sys.exit(1)
 
 ScanErrorCodes(top)

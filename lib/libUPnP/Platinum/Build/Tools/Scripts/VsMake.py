@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 """
 
 Visual Studio 2005 Build Script
@@ -14,14 +14,14 @@ import subprocess
 
 # Setup some path stuff
 try:
-    if environ['VISUALSTUDIO_BIN']:
-        VSBINDIR = environ['VISUALSTUDIO_BIN']
-except NameError:
+    if os.environ['VISUALSTUDIO_BIN']:
+        VSBINDIR = os.environ['VISUALSTUDIO_BIN']
+except KeyError:
     # Use default value for visual studio.
     VSBINDIR = 'C:/Program Files/Microsoft Visual Studio 8/Common7/IDE'
-    print 'VISUALSTUDIO_BIN not set. Trying default value:'
-    print '    ' + VSBINDIR
-    print ''
+    print('VISUALSTUDIO_BIN not set. Trying default value:')
+    print('    ' + VSBINDIR)
+    print('')
 
 
 # ------------------------------------------------------------
@@ -29,20 +29,20 @@ except NameError:
 # ------------------------------------------------------------
 def usage(errMsg):
     try:
-        print 'Error: %s' % (errMsg)
+        print('Error: %s' % (errMsg))
     except NameError:
         pass
 
-    print 'Usage: '
-    print '  %s -s <path to solution> -b [Release|Debug|etc.]' % (sys.argv[0])
-    print ''
-    print '    REQUIRED OPTIONS'
-    print '\t-s <solution>'
-    print '\t-b <configuration>'
-    print ''
-    print '    BUILD OPTIONS'
-    print '\t-c\tMake clean'
-    print '\t-r\tRe-build all'
+    print('Usage: ')
+    print('  %s -s <path to solution> -b [Release|Debug|etc.]' % (sys.argv[0]))
+    print('')
+    print('    REQUIRED OPTIONS')
+    print('\t-s <solution>')
+    print('\t-b <configuration>')
+    print('')
+    print('    BUILD OPTIONS')
+    print('\t-c\tMake clean')
+    print('\t-r\tRe-build all')
 
 
 # ------------------------------------------------------------
@@ -50,9 +50,9 @@ def usage(errMsg):
 # ------------------------------------------------------------
 try:
     opts, args = getopt.getopt(sys.argv[1:], "s:b:rc")
-except getopt.GetoptError, (msg, opt):
-#    print 'Error: invalid argument, %s: %s' % (opt, msg)
-    usage('invalid argument, %s: %s' % (opt, msg))
+except getopt.GetoptError as e:
+#    print('Error: invalid argument, %s: %s' % (opt, msg))
+    usage('invalid argument: %s' % (str(e)))
     sys.exit(2)
 
 # Build options
@@ -81,17 +81,17 @@ try:
     buildSwitch = 'build'
     if rebuildAll: buildSwitch = 'rebuild'
     elif makeClean: buildSwitch = 'clean'
-        
+
     cmd_list = ['%s/devenv.com' % VSBINDIR, '/%s' % buildSwitch, buildName, solutionFile]
     cmd = " ".join(cmd_list)
-    print 'Executing:'
-    print cmd
+    print('Executing:')
+    print(cmd)
     retVal = subprocess.call(cmd_list)
     # only the least sig 8 bits are the real return value
     if retVal != 0:
-        print cmd
-        print '** BUILD FAILURE **'
+        print(cmd)
+        print('** BUILD FAILURE **')
         sys.exit(retVal)
-except NameError, (name):
-    usage('missing argument %s' % (name))
+except NameError as e:
+    usage('missing argument %s' % (str(e)))
     sys.exit(2)
