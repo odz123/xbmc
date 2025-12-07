@@ -241,20 +241,21 @@ int CDVDVideoCodecDRMPRIME::GetBuffer(struct AVCodecContext* avctx, AVFrame* fra
 
     AlignedSize(avctx, width, height);
 
-    int size;
+    size_t size;
+    const size_t pixels = static_cast<size_t>(width) * static_cast<size_t>(height);
     switch (avctx->pix_fmt)
     {
       case AV_PIX_FMT_YUV420P:
       case AV_PIX_FMT_YUVJ420P:
-        size = width * height * 3 / 2;
+        size = pixels * 3 / 2;
         break;
       case AV_PIX_FMT_YUV422P:
       case AV_PIX_FMT_YUVJ422P:
-        size = width * height * 2;
+        size = pixels * 2;
         break;
       case AV_PIX_FMT_YUV444P:
       case AV_PIX_FMT_YUVJ444P:
-        size = width * height * 3;
+        size = pixels * 3;
         break;
       default:
         return -1;

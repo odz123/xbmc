@@ -81,10 +81,29 @@ bool CDemuxMVC::Open(CDVDInputStream* pInput)
   if (blockSize > 1)
     bufferSize = blockSize;
   auto buffer = (unsigned char*)av_malloc(bufferSize);
+  if (!buffer)
+  {
+    CLog::Log(LOGERROR, "{}: Failed to allocate buffer", __FUNCTION__);
+    return false;
+  }
   m_ioContext =
       avio_alloc_context(buffer, bufferSize, 0, this, mvc_file_read, nullptr, mvc_file_seek);
+  if (!m_ioContext)
+  {
+    CLog::Log(LOGERROR, "{}: Failed to allocate IO context", __FUNCTION__);
+    av_free(buffer);
+    return false;
+  }
 
   m_pFormatContext = avformat_alloc_context();
+  if (!m_pFormatContext)
+  {
+    CLog::Log(LOGERROR, "{}: Failed to allocate format context", __FUNCTION__);
+    av_free(m_ioContext->buffer);
+    av_free(m_ioContext);
+    m_ioContext = nullptr;
+    return false;
+  }
   m_pFormatContext->pb = m_ioContext;
 
   const AVInputFormat* format = av_find_input_format("mpegts");

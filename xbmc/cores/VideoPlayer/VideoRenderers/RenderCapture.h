@@ -93,7 +93,7 @@ protected:
   uint8_t* m_pixels{nullptr};
   unsigned int m_width{0};
   unsigned int m_height{0};
-  unsigned int m_bufferSize{0};
+  size_t m_bufferSize{0};
 
   // this is set after the first render
   bool m_asyncSupported{false};

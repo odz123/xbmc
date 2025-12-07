@@ -97,9 +97,10 @@ void CRenderCaptureGL::BeginRender()
 
     //allocate data on the pbo and pixel buffer
     glBindBuffer(GL_PIXEL_PACK_BUFFER, m_pbo);
-    if (m_bufferSize != m_width * m_height * 4)
+    const size_t requiredSize = static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 4;
+    if (m_bufferSize != requiredSize)
     {
-      m_bufferSize = m_width * m_height * 4;
+      m_bufferSize = requiredSize;
       glBufferData(GL_PIXEL_PACK_BUFFER, m_bufferSize, 0, GL_STREAM_READ);
       delete[] m_pixels;
       m_pixels = new uint8_t[m_bufferSize];
@@ -107,10 +108,11 @@ void CRenderCaptureGL::BeginRender()
   }
   else
   {
-    if (m_bufferSize != m_width * m_height * 4)
+    const size_t requiredSize = static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 4;
+    if (m_bufferSize != requiredSize)
     {
       delete[] m_pixels;
-      m_bufferSize = m_width * m_height * 4;
+      m_bufferSize = requiredSize;
       m_pixels = new uint8_t[m_bufferSize];
     }
   }
