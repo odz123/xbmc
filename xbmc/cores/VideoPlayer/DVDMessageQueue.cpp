@@ -36,6 +36,7 @@ CDVDMessageQueue::~CDVDMessageQueue()
 
 void CDVDMessageQueue::Init()
 {
+  std::lock_guard lock(m_section);
   m_iDataSize = 0;
   m_bAbortRequest = false;
   m_bInitialized = true;

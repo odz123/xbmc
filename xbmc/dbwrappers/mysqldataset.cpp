@@ -140,8 +140,11 @@ void MysqlDatabase::configure_connection()
           {
             strcpy(sqlcmd, "SET SESSION optimizer_switch = 'derived_merge=off'");
             if ((ret = mysql_real_query(conn, sqlcmd, strlen(sqlcmd))) != MYSQL_OK)
+            {
+              mysql_free_result(res);
               throw DbErrors("Can't set optimizer_switch = '%s': '%s' (%d)",
                              StringUtils::Trim(itIn).c_str(), db.c_str(), ret);
+            }
             break;
           }
         }
