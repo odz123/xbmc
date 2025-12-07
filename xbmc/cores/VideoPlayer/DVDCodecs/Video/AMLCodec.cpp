@@ -2557,10 +2557,6 @@ bool CAMLCodec::GetNextOrderedBuffer()
   if (m_cur_pts <= m_last_pts)
     logM(LOGWARNING, "CAMLCodec", "current pts:[{}] <= last pts:[{}]", m_cur_pts, m_last_pts);
 
-  m_last_pts = m_cur_pts;
-  m_cur_pts = orderedBuffer.pts;
-  m_bufferIndex = orderedBuffer.buffer.index;
-
   logM(LOGINFO, "CAMLCodec", "buffer size:[{}] index:[{}] pts:[{}]", size, m_bufferIndex,
        m_cur_pts);
 
