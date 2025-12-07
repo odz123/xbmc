@@ -190,7 +190,9 @@ double CActiveAEStream::CalcResampleRatio(double error)
   double proportional = 0.0;
 
   double proportionaldiv = 2.0;
-  proportional = error / GetErrorInterval().count() / proportionaldiv;
+  auto errorInterval = GetErrorInterval().count();
+  if (errorInterval > 0)
+    proportional = error / errorInterval / proportionaldiv;
 
   double clockspeed = 1.0;
   if (m_pClock)
@@ -670,7 +672,8 @@ float CActiveAEStreamBuffers::GetDelay() const {
 
   for (auto &buf : m_inputSamples)
   {
-    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
+    if (buf->pkt->config.sample_rate > 0)
+      delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
   }
 
   delay += m_resampleBuffers->GetDelay();
@@ -678,7 +681,8 @@ float CActiveAEStreamBuffers::GetDelay() const {
 
   for (auto &buf : m_outputSamples)
   {
-    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
+    if (buf->pkt->config.sample_rate > 0)
+      delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
   }
 
   return delay;

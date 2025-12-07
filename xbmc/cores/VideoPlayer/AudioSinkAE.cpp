@@ -288,12 +288,16 @@ double CAudioSinkAE::GetMaxDelay()
 
 double CAudioSinkAE::GetPlayingPts()
 {
+  std::lock_guard lock(m_critSection);
+
   if (m_playingPts == DVD_NOPTS_VALUE)
     return 0.0;
 
   double now = m_pClock->GetAbsoluteClock();
   double diff = now - m_timeOfPts;
-  double cache = GetCacheTime();
+  double cache = 0.0;
+  if (m_pAudioStream)
+    cache = m_pAudioStream->GetCacheTime();
   double played = 0.0;
 
   if (diff < cache)

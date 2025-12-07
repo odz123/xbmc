@@ -101,7 +101,7 @@ bool CActiveAEBufferPool::Create(unsigned int totaltime)
   config.channel_layout = CAEUtil::GetAVChannelLayout(m_format.m_channelLayout);
 
   unsigned int time = 0;
-  unsigned int buffertime = (m_format.m_frames*1000) / m_format.m_sampleRate;
+  unsigned int buffertime = m_format.m_sampleRate > 0 ? (m_format.m_frames*1000) / m_format.m_sampleRate : 0;
   if (m_format.m_dataFormat == AE_FMT_RAW)
   {
     buffertime = m_format.m_streamInfo.GetDuration();
@@ -304,14 +304,16 @@ bool CActiveAEBufferPoolResample::ResampleBuffers(int64_t timestamp)
         }
 
         // pts of last sample we added to the buffer
-        m_lastSamplePts +=
-            (in->pkt->nb_samples - in->pkt_start_offset) * 1000 / in->pkt->config.sample_rate;
+        if (in->pkt->config.sample_rate > 0)
+          m_lastSamplePts +=
+              (in->pkt->nb_samples - in->pkt_start_offset) * 1000 / in->pkt->config.sample_rate;
       }
 
       // calculate pts for last sample in m_procSample
       int bufferedSamples = m_resampler->GetBufferedSamples();
       m_procSample->pkt_start_offset = m_procSample->pkt->nb_samples;
-      m_procSample->timestamp = m_lastSamplePts - bufferedSamples * 1000 / m_format.m_sampleRate;
+      m_procSample->timestamp = m_format.m_sampleRate > 0 ?
+          m_lastSamplePts - bufferedSamples * 1000 / m_format.m_sampleRate : m_lastSamplePts;
 
       if ((m_drain || m_changeResampler) && m_empty)
       {
@@ -377,20 +379,22 @@ float CActiveAEBufferPoolResample::GetDelay()
   float delay = 0;
   std::deque<CSampleBuffer*>::iterator itBuf;
 
-  if (m_procSample)
+  if (m_procSample && m_procSample->pkt->config.sample_rate > 0)
     delay += (float)m_procSample->pkt->nb_samples / m_procSample->pkt->config.sample_rate;
 
   for(itBuf=m_inputSamples.begin(); itBuf!=m_inputSamples.end(); ++itBuf)
   {
-    delay += (float)(*itBuf)->pkt->nb_samples / (*itBuf)->pkt->config.sample_rate;
+    if ((*itBuf)->pkt->config.sample_rate > 0)
+      delay += (float)(*itBuf)->pkt->nb_samples / (*itBuf)->pkt->config.sample_rate;
   }
 
   for(itBuf=m_outputSamples.begin(); itBuf!=m_outputSamples.end(); ++itBuf)
   {
-    delay += (float)(*itBuf)->pkt->nb_samples / (*itBuf)->pkt->config.sample_rate;
+    if ((*itBuf)->pkt->config.sample_rate > 0)
+      delay += (float)(*itBuf)->pkt->nb_samples / (*itBuf)->pkt->config.sample_rate;
   }
 
-  if (m_resampler)
+  if (m_resampler && m_format.m_sampleRate > 0)
   {
     int samples = m_resampler->GetBufferedSamples();
     delay += (float)samples / m_format.m_sampleRate;
@@ -567,13 +571,15 @@ bool CActiveAEBufferPoolAtempo::ProcessBuffers()
           in->pkt_start_offset = 0;
 
         // pts of last sample we added to the buffer
-        m_lastSamplePts += (in->pkt->nb_samples-in->pkt_start_offset) * 1000 / m_format.m_sampleRate;
+        if (m_format.m_sampleRate > 0)
+          m_lastSamplePts += (in->pkt->nb_samples-in->pkt_start_offset) * 1000 / m_format.m_sampleRate;
       }
 
       // calculate pts for last sample in m_procSample
       int bufferedSamples = m_pTempoFilter->GetBufferedSamples();
       m_procSample->pkt_start_offset = m_procSample->pkt->nb_samples;
-      m_procSample->timestamp = m_lastSamplePts - bufferedSamples * 1000 / m_format.m_sampleRate;
+      m_procSample->timestamp = m_format.m_sampleRate > 0 ?
+          m_lastSamplePts - bufferedSamples * 1000 / m_format.m_sampleRate : m_lastSamplePts;
 
       if ((m_drain || m_changeFilter) && m_empty)
       {
@@ -644,20 +650,22 @@ void CActiveAEBufferPoolAtempo::Flush()
 float CActiveAEBufferPoolAtempo::GetDelay() const {
   float delay = 0;
 
-  if (m_procSample)
+  if (m_procSample && m_procSample->pkt->config.sample_rate > 0)
     delay += (float)m_procSample->pkt->nb_samples / m_procSample->pkt->config.sample_rate;
 
   for (auto &buf : m_inputSamples)
   {
-    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
+    if (buf->pkt->config.sample_rate > 0)
+      delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
   }
 
   for (auto &buf : m_outputSamples)
   {
-    delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
+    if (buf->pkt->config.sample_rate > 0)
+      delay += (float)buf->pkt->nb_samples / buf->pkt->config.sample_rate;
   }
 
-  if (m_pTempoFilter->IsActive())
+  if (m_pTempoFilter->IsActive() && m_format.m_sampleRate > 0)
   {
     int samples = m_pTempoFilter->GetBufferedSamples();
     delay += (float)samples / m_format.m_sampleRate;
