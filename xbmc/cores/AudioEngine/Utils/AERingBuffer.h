@@ -160,7 +160,7 @@ public:
     if ( size + m_iReadPos < m_iSize )
     {
 #ifdef AE_RING_BUFFER_DEBUG
-      CLog::Log(LOGDEBUG, "AERingBuffer: Reading from: {} size: {} space before: {}", m_iWritePos,
+      CLog::Log(LOGDEBUG, "AERingBuffer: Reading from: {} size: {} space before: {}", m_iReadPos,
                 size, space);
 #endif
       if (dest)
