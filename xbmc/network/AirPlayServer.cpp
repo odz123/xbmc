@@ -208,7 +208,11 @@ bool CAirPlayServer::StartServer(int port, bool nonlocal)
     return true;
   }
   else
+  {
+    delete ServerInstance;
+    ServerInstance = nullptr;
     return false;
+  }
 }
 
 bool CAirPlayServer::SetCredentials(bool usePassword, const std::string& password)
@@ -497,8 +501,12 @@ CAirPlayServer::CTCPClient::~CTCPClient()
 
 CAirPlayServer::CTCPClient& CAirPlayServer::CTCPClient::operator=(const CTCPClient& client)
 {
-  Copy(client);
-  m_httpParser = new HttpParser();
+  if (this != &client)
+  {
+    delete m_httpParser;
+    Copy(client);
+    m_httpParser = new HttpParser();
+  }
   return *this;
 }
 
@@ -768,8 +776,11 @@ std::string getStringFromPlist(plist_t node)
   std::string ret;
   char *tmpStr = nullptr;
   plist_get_string_val(node, &tmpStr);
-  ret = tmpStr;
-  free(tmpStr);
+  if (tmpStr != nullptr)
+  {
+    ret = tmpStr;
+    free(tmpStr);
+  }
   return ret;
 }
 
