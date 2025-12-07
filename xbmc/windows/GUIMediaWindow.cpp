@@ -902,7 +902,7 @@ bool CGUIMediaWindow::Update(const std::string &strDirectory, bool updateFilterP
   else if (m_vecItems->IsPath("sources://games/"))
     showLabel = 35250; // "Add games..."
    // Add 'Add source ' item
-  if (showLabel && (m_vecItems->Size() == 0 || !m_guiState->DisableAddSourceButtons()) &&
+  if (showLabel && (m_vecItems->Size() == 0 || !m_guiState.get() || !m_guiState->DisableAddSourceButtons()) &&
       iWindow != WINDOW_MUSIC_PLAYLIST_EDITOR)
   {
     const std::string& strLabel = g_localizeStrings.Get(showLabel);
@@ -1071,7 +1071,7 @@ bool CGUIMediaWindow::OnClick(int iItem, const std::string &player)
   {
     if ( pItem->m_bIsShareOrDrive )
     {
-      const std::string& strLockType=m_guiState->GetLockType();
+      const std::string strLockType = m_guiState.get() ? m_guiState->GetLockType() : "";
       if (profileManager->GetMasterProfile().getLockMode() != LOCK_MODE_EVERYONE)
         if (!strLockType.empty() && !g_passwordManager.IsItemUnlocked(pItem.get(), strLockType))
             return true;
@@ -1502,7 +1502,10 @@ bool CGUIMediaWindow::OnPlayMedia(int iItem, const std::string &player)
 
   bool bResult = false;
   if (pItem->IsInternetStream() || pItem->IsPlayList())
-    bResult = g_application.PlayMedia(*pItem, player, m_guiState->GetPlaylist());
+  {
+    PLAYLIST::Id playlistId = m_guiState.get() ? m_guiState->GetPlaylist() : PLAYLIST::TYPE_NONE;
+    bResult = g_application.PlayMedia(*pItem, player, playlistId);
+  }
   else
     bResult = g_application.PlayFile(*pItem, player);
 
@@ -1523,7 +1526,7 @@ bool CGUIMediaWindow::OnPlayMedia(int iItem, const std::string &player)
 bool CGUIMediaWindow::OnPlayAndQueueMedia(const CFileItemPtr& item, const std::string& player)
 {
   //play and add current directory to temporary playlist
-  PLAYLIST::Id playlistId = m_guiState->GetPlaylist();
+  PLAYLIST::Id playlistId = m_guiState.get() ? m_guiState->GetPlaylist() : PLAYLIST::TYPE_NONE;
   if (playlistId != PLAYLIST::TYPE_NONE)
   {
     CServiceBroker::GetPlaylistPlayer().ClearPlaylist(playlistId);

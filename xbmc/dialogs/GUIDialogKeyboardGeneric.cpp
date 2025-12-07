@@ -143,6 +143,12 @@ void CGUIDialogKeyboardGeneric::OnWindowLoaded()
   {
     // add control CTL_LABEL_HZCODE and CTL_LABEL_HZLIST if not exist
     auto ParentControl = static_cast<CGUIControlGroup*>(edit->GetParentControl());
+    if (!ParentControl)
+    {
+      CGUIDialog::OnWindowLoaded();
+      return;
+    }
+
     CLabelInfo labelInfo = edit->GetLabelInfo();
     float px = edit->GetXPosition();
     float py = edit->GetYPosition();

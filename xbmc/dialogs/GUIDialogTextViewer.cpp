@@ -115,6 +115,11 @@ void CGUIDialogTextViewer::ShowForFile(const std::string& path, bool useMonoFont
       data.resize(file.GetLength()+1);
       file.Read(&data[0], file.GetLength());
       CGUIDialogTextViewer* pDialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogTextViewer>(WINDOW_DIALOG_TEXT_VIEWER);
+      if (!pDialog)
+      {
+        CLog::Log(LOGERROR, "CGUIDialogTextViewer::ShowForFile - unable to get WINDOW_DIALOG_TEXT_VIEWER");
+        return;
+      }
       pDialog->SetHeading(URIUtils::GetFileName(path));
       pDialog->SetText(data);
       pDialog->UseMonoFont(useMonoFont);
