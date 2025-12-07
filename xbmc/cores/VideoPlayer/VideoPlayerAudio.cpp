@@ -465,7 +465,7 @@ void CVideoPlayerAudio::ClockAlign(double presentPts) const
   double diff = (renderPts - presentPts);
   double delay = diff;
 
-  if ((diff < 0) && (diff > -1000000))
+  if ((diff < 0) && (diff > -DVD_MSEC_TO_TIME(1000)))
   {
     double wait = -diff;
     aml_wait(static_cast<useconds_t>(wait));
@@ -587,8 +587,9 @@ bool CVideoPlayerAudio::ProcessDecoderOutput(DVDAudioFrame& audioframe)
 
   int framesOutput = m_audioSink.AddPackets(audioframe);
 
-  // guess next pts
-  m_audioClock += audioframe.duration * ((double)framesOutput / audioframe.nb_frames);
+  // guess next pts - guard against division by zero when nb_frames is 0
+  if (audioframe.nb_frames > 0)
+    m_audioClock += audioframe.duration * ((double)framesOutput / audioframe.nb_frames);
 
   audioframe.framesOut += framesOutput;
 

@@ -293,6 +293,9 @@ double CAudioSinkAE::GetPlayingPts()
   if (m_playingPts == DVD_NOPTS_VALUE)
     return 0.0;
 
+  if (!m_pClock)
+    return m_playingPts;
+
   double now = m_pClock->GetAbsoluteClock();
   double diff = now - m_timeOfPts;
   double cache = 0.0;

@@ -115,6 +115,10 @@ void CPtsTracker::Add(double pts)
 //gets a diff diffnr into the past
 inline double CPtsTracker::GetDiff(int diffnr) const
 {
+  // Bounds check: don't read past filled ring or beyond buffer size
+  if (diffnr < 0 || diffnr >= m_ringfill || diffnr >= DIFFRINGSIZE)
+    return 0.0;
+
   //m_ringpos is the last added diff, so if we want to go in the past we have to move back in the ringbuffer
   int pos = m_ringpos - diffnr;
   if (pos < 0)
