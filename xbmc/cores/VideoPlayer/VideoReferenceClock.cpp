@@ -138,8 +138,12 @@ void CVideoReferenceClock::UpdateClockInternal(int NrVBlanks, bool CheckMissed)
   {
     m_MissedVblanks += NrVBlanks; //tell the vblank clock how many vblanks it missed
     m_TotalMissedVblanks += NrVBlanks; //for the codec information screen
+    // Guard against division by zero: ensure refresh rate rounds to at least 1
+    int roundedRefreshRate = MathUtils::round_int(m_RefreshRate);
+    if (roundedRefreshRate < 1)
+      roundedRefreshRate = 60; // Default to 60Hz if refresh rate is invalid
     m_VblankTime += m_SystemFrequency * static_cast<int64_t>(NrVBlanks) /
-                    MathUtils::round_int(m_RefreshRate); //set the vblank time forward
+                    roundedRefreshRate; //set the vblank time forward
   }
 
   if (NrVBlanks > 0) //update the clock with the adjusted frequency if we have any vblanks
@@ -159,6 +163,9 @@ void CVideoReferenceClock::UpdateClockInternal(int NrVBlanks, bool CheckMissed)
 
 double CVideoReferenceClock::UpdateInterval() const
 {
+  // Guard against division by zero when refresh rate hasn't been set yet
+  if (m_RefreshRate <= 0.0)
+    return static_cast<double>(m_SystemFrequency) / 60.0; // Default to 60Hz
   return m_ClockSpeed / m_RefreshRate * static_cast<double>(m_SystemFrequency);
 }
 
@@ -255,7 +262,13 @@ double CVideoReferenceClock::GetRefreshRate(double* interval /*= NULL*/) const
   if (m_UseVblank)
   {
     if (interval)
-      *interval = m_ClockSpeed / m_RefreshRate;
+    {
+      // Guard against division by zero when refresh rate hasn't been set yet
+      if (m_RefreshRate > 0.0)
+        *interval = m_ClockSpeed / m_RefreshRate;
+      else
+        *interval = m_ClockSpeed / 60.0; // Default to 60Hz
+    }
 
     return m_RefreshRate;
   }
@@ -269,8 +282,12 @@ double CVideoReferenceClock::GetRefreshRate(double* interval /*= NULL*/) const
 //increase that by 30% to allow for errors
 int64_t CVideoReferenceClock::TimeOfNextVblank() const
 {
+  // Guard against division by zero: ensure refresh rate rounds to at least 1
+  int roundedRefreshRate = MathUtils::round_int(m_RefreshRate);
+  if (roundedRefreshRate < 1)
+    roundedRefreshRate = 60; // Default to 60Hz if refresh rate is invalid
   return m_VblankTime +
-         (m_SystemFrequency / MathUtils::round_int(m_RefreshRate) * MAXVBLANKDELAY / 10LL);
+         (m_SystemFrequency / roundedRefreshRate * MAXVBLANKDELAY / 10LL);
 }
 
 //for the codec information screen

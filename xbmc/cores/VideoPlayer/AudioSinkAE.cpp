@@ -321,13 +321,15 @@ double CAudioSinkAE::GetPlayingFramePts() const
   return m_playingFramePts;
 }
 
-double CAudioSinkAE::GetSyncError() const
+double CAudioSinkAE::GetSyncError()
 {
+  std::lock_guard lock(m_critSection);
   return m_syncError;
 }
 
 void CAudioSinkAE::SetSyncErrorCorrection(double correction)
 {
+  std::lock_guard lock(m_critSection);
   m_syncError += correction;
 }
 

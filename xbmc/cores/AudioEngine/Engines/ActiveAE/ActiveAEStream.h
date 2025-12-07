@@ -13,10 +13,12 @@
 #include "cores/AudioEngine/Interfaces/AEStream.h"
 #include "cores/AudioEngine/Utils/AEAudioFormat.h"
 #include "cores/AudioEngine/Utils/AELimiter.h"
+#include "threads/CriticalSection.h"
 #include "threads/Event.h"
 
 #include <atomic>
 #include <deque>
+#include <mutex>
 
 namespace ActiveAE
 {
@@ -31,12 +33,14 @@ public:
   }
   void Add(double error)
   {
+    std::lock_guard<CCriticalSection> lock(m_critSection);
     m_buffer += error;
     m_count++;
   }
 
   void Flush(std::chrono::milliseconds interval = std::chrono::milliseconds(100))
   {
+    std::lock_guard<CCriticalSection> lock(m_critSection);
     m_buffer = 0.0;
     m_lastError = 0.0;
     m_count  = 0;
@@ -45,6 +49,7 @@ public:
 
   void SetErrorInterval(std::chrono::milliseconds interval = std::chrono::milliseconds(100))
   {
+    std::lock_guard<CCriticalSection> lock(m_critSection);
     m_buffer = 0.0;
     m_count = 0;
     m_timer.Set(interval);
@@ -52,10 +57,11 @@ public:
 
   bool Get(double& error, std::chrono::milliseconds interval = std::chrono::milliseconds(100))
   {
+    std::lock_guard<CCriticalSection> lock(m_critSection);
     if(m_timer.IsTimePast())
     {
-      error = Get();
-      Flush(interval);
+      error = GetInternal();
+      FlushInternal(interval);
       m_lastError = error;
       return true;
     }
@@ -66,24 +72,37 @@ public:
     }
   }
 
-  double GetLastError(unsigned int &time) const {
+  double GetLastError(unsigned int &time) {
+    std::lock_guard<CCriticalSection> lock(m_critSection);
     time = m_timer.GetStartTime().time_since_epoch().count();
     return m_lastError;
   }
 
   void Correction(double correction)
   {
+    std::lock_guard<CCriticalSection> lock(m_critSection);
     m_lastError += correction;
   }
 
 protected:
-  double Get() const
+  // Internal methods without locking - must be called with lock held
+  double GetInternal() const
   {
     if(m_count)
       return m_buffer / m_count;
     else
       return 0.0;
   }
+
+  void FlushInternal(std::chrono::milliseconds interval)
+  {
+    m_buffer = 0.0;
+    m_lastError = 0.0;
+    m_count  = 0;
+    m_timer.Set(interval);
+  }
+
+  mutable CCriticalSection m_critSection;
   double m_buffer;
   double m_lastError;
   int m_count;
