@@ -60,7 +60,17 @@ double CDVDClock::GetClock(bool interpolated /*= true*/)
   std::lock_guard lock(m_critSection);
 
   int64_t current = m_videoRefClock->GetTime(interpolated);
-  m_systemAdjust += m_speedAdjust * (current - m_lastSystemTime);
+  // Calculate adjustment with overflow protection
+  double adjustment = m_speedAdjust * (current - m_lastSystemTime);
+  // Clamp to prevent overflow when casting to int64_t
+  constexpr double maxAdjust = static_cast<double>(INT64_MAX / 2);
+  constexpr double minAdjust = static_cast<double>(INT64_MIN / 2);
+  if (adjustment > maxAdjust - m_systemAdjust)
+    m_systemAdjust = INT64_MAX / 2;
+  else if (adjustment < minAdjust - m_systemAdjust)
+    m_systemAdjust = INT64_MIN / 2;
+  else
+    m_systemAdjust += static_cast<int64_t>(adjustment);
   m_lastSystemTime = current;
 
   return SystemToPlaying(current);
@@ -77,7 +87,17 @@ double CDVDClock::GetClock(double& absolute, bool interpolated /*= true*/)
     absolute = SystemToAbsolute(current);
   }
 
-  m_systemAdjust += m_speedAdjust * (current - m_lastSystemTime);
+  // Calculate adjustment with overflow protection
+  double adjustment = m_speedAdjust * (current - m_lastSystemTime);
+  // Clamp to prevent overflow when casting to int64_t
+  constexpr double maxAdjust = static_cast<double>(INT64_MAX / 2);
+  constexpr double minAdjust = static_cast<double>(INT64_MIN / 2);
+  if (adjustment > maxAdjust - m_systemAdjust)
+    m_systemAdjust = INT64_MAX / 2;
+  else if (adjustment < minAdjust - m_systemAdjust)
+    m_systemAdjust = INT64_MIN / 2;
+  else
+    m_systemAdjust += static_cast<int64_t>(adjustment);
   m_lastSystemTime = current;
 
   return SystemToPlaying(current);
@@ -181,7 +201,26 @@ double CDVDClock::ErrorAdjust(double error, const char* log)
   std::lock_guard lock(m_critSection);
 
   double clock, absolute, adjustment;
-  clock = GetClock(absolute);
+  // Inline the clock calculation to avoid recursive lock acquisition.
+  // GetClock(absolute) also acquires m_critSection, which would cause deadlock
+  // with non-recursive mutexes or inefficiency with recursive ones.
+  int64_t current = m_videoRefClock->GetTime(true);
+  {
+    std::lock_guard syslock(m_systemsection);
+    absolute = SystemToAbsolute(current);
+  }
+  // Calculate adjustment with overflow protection
+  double speedAdj = m_speedAdjust * (current - m_lastSystemTime);
+  constexpr double maxAdjust = static_cast<double>(INT64_MAX / 2);
+  constexpr double minAdjust = static_cast<double>(INT64_MIN / 2);
+  if (speedAdj > maxAdjust - m_systemAdjust)
+    m_systemAdjust = INT64_MAX / 2;
+  else if (speedAdj < minAdjust - m_systemAdjust)
+    m_systemAdjust = INT64_MIN / 2;
+  else
+    m_systemAdjust += static_cast<int64_t>(speedAdj);
+  m_lastSystemTime = current;
+  clock = SystemToPlaying(current);
 
   // skip minor updates while speed adjust is active
   // -> adjusting buffer levels

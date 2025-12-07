@@ -54,15 +54,16 @@ bool CVideoBuffer::CopyPicture(YuvImage* pDst, YuvImage* pSrc)
 {
   uint8_t* s = pSrc->plane[0];
   uint8_t* d = pDst->plane[0];
-  int w = pDst->width * pDst->bpp;
-  int h = pDst->height;
-  if ((w == pSrc->stride[0]) && (pSrc->stride[0] == pDst->stride[0]))
+  // Use size_t to prevent integer overflow in size calculations
+  size_t w = static_cast<size_t>(pDst->width) * pDst->bpp;
+  size_t h = pDst->height;
+  if ((w == static_cast<size_t>(pSrc->stride[0])) && (pSrc->stride[0] == pDst->stride[0]))
   {
     memcpy(d, s, w * h);
   }
   else
   {
-    for (int y = 0; y < h; y++)
+    for (size_t y = 0; y < h; y++)
     {
       memcpy(d, s, w);
       s += pSrc->stride[0];
@@ -71,15 +72,16 @@ bool CVideoBuffer::CopyPicture(YuvImage* pDst, YuvImage* pSrc)
   }
   s = pSrc->plane[1];
   d = pDst->plane[1];
-  w = (pDst->width >> pDst->cshift_x) * pDst->bpp;
-  h = (pDst->height >> pDst->cshift_y);
-  if ((w == pSrc->stride[1]) && (pSrc->stride[1] == pDst->stride[1]))
+  // Use size_t to prevent integer overflow in size calculations
+  w = (static_cast<size_t>(pDst->width) >> pDst->cshift_x) * pDst->bpp;
+  h = static_cast<size_t>(pDst->height) >> pDst->cshift_y;
+  if ((w == static_cast<size_t>(pSrc->stride[1])) && (pSrc->stride[1] == pDst->stride[1]))
   {
     memcpy(d, s, w * h);
   }
   else
   {
-    for (int y = 0; y < h; y++)
+    for (size_t y = 0; y < h; y++)
     {
       memcpy(d, s, w);
       s += pSrc->stride[1];
@@ -88,13 +90,13 @@ bool CVideoBuffer::CopyPicture(YuvImage* pDst, YuvImage* pSrc)
   }
   s = pSrc->plane[2];
   d = pDst->plane[2];
-  if ((w == pSrc->stride[2]) && (pSrc->stride[2] == pDst->stride[2]))
+  if ((w == static_cast<size_t>(pSrc->stride[2])) && (pSrc->stride[2] == pDst->stride[2]))
   {
     memcpy(d, s, w * h);
   }
   else
   {
-    for (int y = 0; y < h; y++)
+    for (size_t y = 0; y < h; y++)
     {
       memcpy(d, s, w);
       s += pSrc->stride[2];
@@ -108,16 +110,17 @@ bool CVideoBuffer::CopyNV12Picture(YuvImage* pDst, YuvImage* pSrc)
 {
   uint8_t* s = pSrc->plane[0];
   uint8_t* d = pDst->plane[0];
-  int w = pDst->width;
-  int h = pDst->height;
+  // Use size_t to prevent integer overflow in size calculations
+  size_t w = pDst->width;
+  size_t h = pDst->height;
   // Copy Y
-  if ((w == pSrc->stride[0]) && (pSrc->stride[0] == pDst->stride[0]))
+  if ((w == static_cast<size_t>(pSrc->stride[0])) && (pSrc->stride[0] == pDst->stride[0]))
   {
     memcpy(d, s, w * h);
   }
   else
   {
-    for (int y = 0; y < h; y++)
+    for (size_t y = 0; y < h; y++)
     {
       memcpy(d, s, w);
       s += pSrc->stride[0];
@@ -128,15 +131,15 @@ bool CVideoBuffer::CopyNV12Picture(YuvImage* pDst, YuvImage* pSrc)
   s = pSrc->plane[1];
   d = pDst->plane[1];
   w = pDst->width;
-  h = pDst->height >> 1;
+  h = static_cast<size_t>(pDst->height) >> 1;
   // Copy packed UV (width is same as for Y as it's both U and V components)
-  if ((w == pSrc->stride[1]) && (pSrc->stride[1] == pDst->stride[1]))
+  if ((w == static_cast<size_t>(pSrc->stride[1])) && (pSrc->stride[1] == pDst->stride[1]))
   {
     memcpy(d, s, w * h);
   }
   else
   {
-    for (int y = 0; y < h; y++)
+    for (size_t y = 0; y < h; y++)
     {
       memcpy(d, s, w);
       s += pSrc->stride[1];
@@ -151,17 +154,18 @@ bool CVideoBuffer::CopyYUV422PackedPicture(YuvImage* pDst, YuvImage* pSrc)
 {
   uint8_t* s = pSrc->plane[0];
   uint8_t* d = pDst->plane[0];
-  int w = pDst->width;
-  int h = pDst->height;
+  // Use size_t to prevent integer overflow in size calculations
+  size_t w = pDst->width;
+  size_t h = pDst->height;
 
   // Copy YUYV
-  if ((w * 2 == pSrc->stride[0]) && (pSrc->stride[0] == pDst->stride[0]))
+  if ((w * 2 == static_cast<size_t>(pSrc->stride[0])) && (pSrc->stride[0] == pDst->stride[0]))
   {
     memcpy(d, s, w * h * 2);
   }
   else
   {
-    for (int y = 0; y < h; y++)
+    for (size_t y = 0; y < h; y++)
     {
       memcpy(d, s, w * 2);
       s += pSrc->stride[0];

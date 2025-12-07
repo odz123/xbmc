@@ -73,7 +73,7 @@ public:
     return Get(pMsg, timeout, priority);
   }
 
-  int GetDataSize() const { return m_iDataSize; }
+  uint64_t GetDataSize() const { return m_iDataSize; }
   int GetTimeSize() const;
   unsigned GetPacketCount(CDVDMsg::Message type) const;
   bool ReceivedAbortRequest() { return m_bAbortRequest; }
