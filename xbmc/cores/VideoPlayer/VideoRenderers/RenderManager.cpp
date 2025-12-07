@@ -1267,6 +1267,9 @@ int CRenderManager::WaitForBuffer(volatile std::atomic_bool& bStop,
 
 void inline CRenderManager::SetPresentSource()
 {
+  if (m_queued.empty())
+    return;
+
   if (m_presentstarted)
   {
     if (m_discard.empty() || (m_discard.back() != m_presentsource))
@@ -1310,6 +1313,9 @@ void CRenderManager::PrepareNextRender()
   auto last = std::unique(m_queued.begin(), m_queued.end());
   m_queued.erase(last, m_queued.end());
 
+  if (m_queued.empty())
+    return;
+
   SetPresentSource(); // get next frame
 
   if (m_dvdClock.GetClockSpeed() < 0)
@@ -1323,9 +1329,10 @@ void CRenderManager::PrepareNextRender()
 
   if (m_clockSync.m_enabled)
   {
-    m_presentframetime =
-        1.0 / static_cast<double>(CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS()) *
-        DVD_TIME_BASE;
+    double displayFps = static_cast<double>(CServiceBroker::GetWinSystem()->GetGfxContext().GetFPS());
+    if (displayFps <= 0)
+      displayFps = 60.0; // Fallback to 60Hz if FPS unavailable
+    m_presentframetime = 1.0 / displayFps * DVD_TIME_BASE;
     double err = fmod(diff, m_presentframetime);
     m_clockSync.m_error += err;
     m_clockSync.m_errCount++;
@@ -1357,10 +1364,13 @@ void CRenderManager::PrepareNextRender()
       diff = (renderPts - m_presentpts);
     }
 
-  m_lateframes = static_cast<int>(std::max(0.0, diff / m_presentframetime));
+  m_lateframes = (m_presentframetime > 0)
+                     ? static_cast<int>(std::max(0.0, diff / m_presentframetime))
+                     : 0;
   m_presentstep = PRESENT_FLIP;
   m_presentstarted = true;
-  m_queued.pop_front();
+  if (!m_queued.empty())
+    m_queued.pop_front();
   m_presentevent.notifyAll();
 
   logComponentM(LOGDEBUG, LOGAVTIMING, "CRenderManager",

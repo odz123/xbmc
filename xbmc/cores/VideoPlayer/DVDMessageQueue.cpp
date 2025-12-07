@@ -312,6 +312,8 @@ int CDVDMessageQueue::GetLevel(bool data_level) const
 {
   std::lock_guard lock(m_section);
 
+  if (m_iMaxDataSize == 0)
+    return 0;
   if (m_iDataSize > m_iMaxDataSize)
     return 100;
   if (m_iDataSize == 0)

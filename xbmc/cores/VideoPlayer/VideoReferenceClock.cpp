@@ -176,10 +176,14 @@ int64_t CVideoReferenceClock::GetTime(bool interpolated /* = true*/)
     Now = CurrentHostCounter(); //get current system time
     NextVblank = TimeOfNextVblank(); //get time when the next vblank should happen
 
-    while (Now >= NextVblank) //keep looping until the next vblank is in the future
+    // Limit iterations to prevent infinite loop after system time jumps (e.g., hibernate wake)
+    static constexpr int MAX_VBLANK_CATCHUP = 1000;
+    int iterations = 0;
+    while (Now >= NextVblank && iterations < MAX_VBLANK_CATCHUP) //keep looping until the next vblank is in the future
     {
       UpdateClockInternal(1, false); //update clock when next vblank should have happened already
       NextVblank = TimeOfNextVblank(); //get time when the next vblank should happen
+      iterations++;
     }
 
     if (interpolated)
