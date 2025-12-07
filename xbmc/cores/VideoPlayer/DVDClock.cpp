@@ -68,11 +68,14 @@ double CDVDClock::GetClock(bool interpolated /*= true*/)
 
 double CDVDClock::GetClock(double& absolute, bool interpolated /*= true*/)
 {
+  std::lock_guard lock(m_critSection);
+
   int64_t current = m_videoRefClock->GetTime(interpolated);
 
-  std::lock_guard lock(m_systemsection);
-
-  absolute = SystemToAbsolute(current);
+  {
+    std::lock_guard syslock(m_systemsection);
+    absolute = SystemToAbsolute(current);
+  }
 
   m_systemAdjust += m_speedAdjust * (current - m_lastSystemTime);
   m_lastSystemTime = current;
