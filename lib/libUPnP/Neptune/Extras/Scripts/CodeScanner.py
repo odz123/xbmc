@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python3
 
 import os
 import os.path
@@ -27,7 +27,7 @@ def ResolveErrors():
                     first = 0
                 else:
                     first = elements[0]
-                if Errors.has_key(first):
+                if first in Errors:
                     first = Errors[first]
                 if not type(first) is str:
                     second = int(elements[1])
@@ -53,20 +53,18 @@ def ScanErrorCodes(top):
     for key in Errors:
         #print key,"==>",Errors[key]
         if (key.find("ERROR_BASE") > 1): continue
-        if Codes.has_key(Errors[key]):
+        if Errors[key] in Codes:
             raise Exception("duplicate error code: "+ str(key) +" --> " + str(Errors[key]) + "=" + Codes[Errors[key]])
         Codes[Errors[key]] = key
-        
-    sorted_keys = Codes.keys()
-    sorted_keys.sort()
-    sorted_keys.reverse()
+
+    sorted_keys = sorted(Codes.keys(), reverse=True)
     last = 0
     for code in sorted_keys:
         if type(code) != int:
         	continue
         if code != last-1:
-            print 
-        print code,"==>", Codes[code]
+            print()
+        print(code,"==>", Codes[code])
         last = code
 
 def AnalyzeLoggers(file):
@@ -86,7 +84,7 @@ def ScanLoggers(top):
         
     Loggers.sort()
     for logger in Loggers:
-        print logger
+        print(logger)
 
 def AnalyzeNakedErrors(file, prefix):
     line_number = 0
@@ -95,7 +93,7 @@ def AnalyzeNakedErrors(file, prefix):
         line_number += 1
         m = NakedErrorPattern.search(line)
         if m:
-            print file[len(prefix):],line_number," --> ", line,
+            print(file[len(prefix):],line_number," --> ", line, end='')
     input.close()
 
 def ScanNakedErrors(top):
@@ -108,7 +106,7 @@ def FindTabsInFile(file):
     input = open(file)
     for line in input.readlines():
         if line.find('\t') >= 0:
-            print "TAB found in", file
+            print("TAB found in", file)
             input.close()
             return
     input.close()
@@ -139,10 +137,10 @@ while len(sys.argv):
     elif top == None:
         top = arg
     else:
-        raise "unexpected argument " + arg
+        raise Exception("unexpected argument " + arg)
 
 if not action or not top:
-    print "CodeScanner {--list-error-codes | --list-loggers | --find-tabs} <directory-root>"
+    print("CodeScanner {--list-error-codes | --list-loggers | --find-tabs} <directory-root>")
     sys.exit(1)
 
 action(top)

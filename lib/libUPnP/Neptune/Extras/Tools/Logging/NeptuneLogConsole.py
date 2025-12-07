@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from socket import *
 from optparse import OptionParser
@@ -19,6 +19,9 @@ Senders = {}
 
 class LogRecord:
     def __init__(self, data):
+        # Decode bytes to string if necessary (Python 3)
+        if isinstance(data, bytes):
+            data = data.decode('utf-8', errors='replace')
         offset = 0
         self.headers = {}
         for line in data.split("\r\n"):
@@ -27,10 +30,10 @@ class LogRecord:
             key,value=line.split(":",1)
             self.headers[key] = value.strip()
         self.body = data[offset:]
-        
+
     def __getitem__(self, index):
         return self.headers[index]
-        
+
     def format(self, sender_index, keys):
         parts = ['['+str(sender_index)+']']
         if 'Level' in keys:
@@ -50,13 +53,13 @@ class LogRecord:
             parts.append(self.headers['Source-Function'])
         parts.append(self.body)
         return ' '.join(parts)
-    
+
 class Listener:
     def __init__(self, format='standard', port=UDP_PORT):
         self.socket = socket(AF_INET,SOCK_DGRAM)
         self.socket.bind((UDP_ADDR, port))
         self.format_keys = HEADER_KEYS[format]
-        
+
     def listen(self):
         while True:
             data,addr = self.socket.recvfrom(BUFFER_SIZE)
@@ -64,12 +67,12 @@ class Listener:
             if addr in Senders:
                 sender_index = Senders[addr]
             else:
-                print "### NEW SENDER:", addr
+                print("### NEW SENDER:", addr)
                 Senders[addr] = sender_index
-            
+
             record = LogRecord(data)
-            print record.format(sender_index, self.format_keys)
-        
+            print(record.format(sender_index, self.format_keys))
+
 
 ### main
 parser = OptionParser(usage="%prog [options]")
@@ -77,6 +80,6 @@ parser.add_option("-p", "--port", dest="port", help="port number to listen on", 
 parser.add_option("-f", "--format", dest="format", help="log format (mini, standard, long, or all)", choices=('mini', 'standard', 'long', 'all'), default='standard')
 (options, args) = parser.parse_args()
 
-print "Listening on port", options.port
+print("Listening on port", options.port)
 l = Listener(format=options.format, port=options.port)
 l.listen()
