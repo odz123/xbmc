@@ -286,7 +286,10 @@ int CDVDClock::UpdateFramerate(double fps, double* interval /*= NULL*/)
   if (fps == 0.0)
     return -1;
 
-  m_frameTime = 1 / fps * DVD_TIME_BASE;
+  {
+    std::lock_guard lock(m_critSection);
+    m_frameTime = 1 / fps * DVD_TIME_BASE;
+  }
 
   //check if the videoreferenceclock is running, will return -1 if not
   double rate = m_videoRefClock->GetRefreshRate(interval);

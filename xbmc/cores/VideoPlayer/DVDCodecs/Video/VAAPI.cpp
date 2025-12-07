@@ -260,7 +260,11 @@ void CVAAPIContext::QueryCaps()
 
   if (!CheckSuccess(vaQueryConfigProfiles(m_display, m_profiles, &m_profileCount),
                     "vaQueryConfigProfiles"))
+  {
+    delete[] m_profiles;
+    m_profiles = nullptr;
     return;
+  }
 
   for (int i = 0; i < m_profileCount; i++)
   {

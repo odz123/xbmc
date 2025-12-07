@@ -73,7 +73,11 @@ bool CTCPServer::StartServer(int port, bool nonlocal)
     return true;
   }
   else
+  {
+    delete ServerInstance;
+    ServerInstance = nullptr;
     return false;
+  }
 }
 
 void CTCPServer::StopServer(bool bWait)

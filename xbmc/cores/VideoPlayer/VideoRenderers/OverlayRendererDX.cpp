@@ -147,6 +147,8 @@ COverlayQuadsDX::COverlayQuadsDX(ASS_Image* images, float width, float height)
   {
     CLog::Log(LOGERROR, "{} - failed to create vertex buffer", __FUNCTION__);
     m_texture.Release();
+    delete[] vt;
+    return;
   }
 
   delete[] vt;
