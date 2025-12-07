@@ -2474,10 +2474,10 @@ bool CDVDDemuxFFmpeg::IsProgramChange()
     return true;
   }
 
-  if (m_pFormatContext->programs[m_program]->nb_stream_indexes != m_streamsInProgram)
+  if (m_program >= m_pFormatContext->nb_programs)
     return true;
 
-  if (m_program >= m_pFormatContext->nb_programs)
+  if (m_pFormatContext->programs[m_program]->nb_stream_indexes != m_streamsInProgram)
     return true;
 
   for (unsigned int i = 0; i < m_pFormatContext->programs[m_program]->nb_stream_indexes; i++)

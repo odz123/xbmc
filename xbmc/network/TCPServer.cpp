@@ -197,6 +197,7 @@ void CTCPServer::Process()
           if (newconnection->m_socket == INVALID_SOCKET)
           {
             CLog::Log(LOGERROR, "JSONRPC Server: Accept of new connection failed: {}", errno);
+            delete newconnection;
             if (EBADF == errno)
             {
               CThread::Sleep(1000ms);
@@ -435,6 +436,7 @@ bool CTCPServer::InitializeBlue()
   sdp_list_free(l2cap_list, nullptr);
   sdp_list_free(rfcomm_list, nullptr);
   sdp_list_free(root_list, nullptr);
+  sdp_list_free(proto_list, nullptr);
   sdp_list_free(access_proto_list, nullptr);
   sdp_list_free(service_class, nullptr);
 
