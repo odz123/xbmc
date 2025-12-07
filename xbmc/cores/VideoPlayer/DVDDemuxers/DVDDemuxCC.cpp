@@ -153,12 +153,17 @@ class CCaptionBlock
   CCaptionBlock& operator=(const CCaptionBlock&) = delete;
 
 public:
-  explicit CCaptionBlock(int size)
+  explicit CCaptionBlock(int size) : m_pts(0.0), m_data(nullptr), m_size(0)
   {
-    m_data = (uint8_t*)malloc(size);
-    m_size = size;
-    m_pts = 0.0; //silence coverity uninitialized warning, is set elsewhere
+    if (size > 0)
+    {
+      m_data = (uint8_t*)malloc(size);
+      if (m_data)
+        m_size = size;
+    }
   }
+
+  bool IsValid() const { return m_data != nullptr && m_size > 0; }
   virtual ~CCaptionBlock() { free(m_data); }
   double m_pts;
   uint8_t* m_data;
@@ -259,12 +264,19 @@ DemuxPacket* CDVDDemuxCC::Read(DemuxPacket* pSrcPacket)
             if (cc_count > 0 && len >= 7 + cc_count * 3)
             {
               auto cc = new CCaptionBlock(cc_count * 3);
-              memcpy(cc->m_data, buf + 7, cc_count * 3);
-              cc->m_pts = pSrcPacket->pts;
-              if (picType == 1 || picType == 2)
-                m_ccTempBuffer.push_back(cc);
+              if (!cc->IsValid())
+              {
+                delete cc;
+              }
               else
-                m_ccReorderBuffer.push_back(cc);
+              {
+                memcpy(cc->m_data, buf + 7, cc_count * 3);
+                cc->m_pts = pSrcPacket->pts;
+                if (picType == 1 || picType == 2)
+                  m_ccTempBuffer.push_back(cc);
+                else
+                  m_ccReorderBuffer.push_back(cc);
+              }
             }
           }
           else if (len >= 6 && buf[0] == 'C' && buf[1] == 'C' && buf[2] == 1)
@@ -278,29 +290,36 @@ DemuxPacket* CDVDDemuxCC::Read(DemuxPacket* pSrcPacket)
             if (cc_count > 0 && len >= 5 + cc_count * 3 * 2)
             {
               auto cc = new CCaptionBlock(cc_count * 3);
-              uint8_t* src = buf + 5;
-              uint8_t* dst = cc->m_data;
-
-              for (int i = 0; i < cc_count; i++)
+              if (!cc->IsValid())
               {
-                for (int j = 0; j < 2; j++)
-                {
-                  if (i == cc_count - 1 && extrafield && j == 1)
-                    break;
-
-                  if ((oddidx == j) && (src[0] == 0xFF))
-                  {
-                    dst[0] = 0x04;
-                    dst[1] = src[1];
-                    dst[2] = src[2];
-                    dst += 3;
-                  }
-                  src += 3;
-                }
+                delete cc;
               }
-              cc->m_pts = pSrcPacket->pts;
-              m_ccReorderBuffer.push_back(cc);
-              picType = 1;
+              else
+              {
+                uint8_t* src = buf + 5;
+                uint8_t* dst = cc->m_data;
+
+                for (int i = 0; i < cc_count; i++)
+                {
+                  for (int j = 0; j < 2; j++)
+                  {
+                    if (i == cc_count - 1 && extrafield && j == 1)
+                      break;
+
+                    if ((oddidx == j) && (src[0] == 0xFF))
+                    {
+                      dst[0] = 0x04;
+                      dst[1] = src[1];
+                      dst[2] = src[2];
+                      dst += 3;
+                    }
+                    src += 3;
+                  }
+                }
+                cc->m_pts = pSrcPacket->pts;
+                m_ccReorderBuffer.push_back(cc);
+                picType = 1;
+              }
             }
           }
         }
@@ -339,9 +358,16 @@ DemuxPacket* CDVDDemuxCC::Read(DemuxPacket* pSrcPacket)
             if (len >= cc_count * 3 + 10)
             {
               auto cc = new CCaptionBlock(cc_count * 3);
-              memcpy(cc->m_data, userdata + 2, cc_count * 3);
-              cc->m_pts = pSrcPacket->pts;
-              m_ccTempBuffer.push_back(cc);
+              if (!cc->IsValid())
+              {
+                delete cc;
+              }
+              else
+              {
+                memcpy(cc->m_data, userdata + 2, cc_count * 3);
+                cc->m_pts = pSrcPacket->pts;
+                m_ccTempBuffer.push_back(cc);
+              }
             }
           }
         }

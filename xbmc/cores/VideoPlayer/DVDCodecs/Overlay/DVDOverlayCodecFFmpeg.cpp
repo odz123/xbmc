@@ -65,6 +65,12 @@ bool CDVDOverlayCodecFFmpeg::Open(CDVDStreamInfo& hints, CDVDCodecOptions& optio
     m_pCodecContext->extradata_size = hints.extradata.GetSize();
     m_pCodecContext->extradata =
         (uint8_t*)av_mallocz(hints.extradata.GetSize() + AV_INPUT_BUFFER_PADDING_SIZE);
+    if (!m_pCodecContext->extradata)
+    {
+      CLog::Log(LOGERROR, "{}: Failed to allocate extradata buffer", __FUNCTION__);
+      avcodec_free_context(&m_pCodecContext);
+      return false;
+    }
     memcpy(m_pCodecContext->extradata, hints.extradata.GetData(), hints.extradata.GetSize());
 
     // start parsing of extra data - create a copy to be safe and make it zero-terminating to avoid access violations!

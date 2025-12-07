@@ -1142,10 +1142,23 @@ CDecoder::CDecoder(CProcessInfo& processInfo) : m_processInfo(processInfo)
 {
   m_event.Set();
   m_avD3D11Context = av_d3d11va_alloc_context();
-  m_avD3D11Context->cfg =
-      reinterpret_cast<D3D11_VIDEO_DECODER_CONFIG*>(av_mallocz(sizeof(D3D11_VIDEO_DECODER_CONFIG)));
-  m_avD3D11Context->surface = reinterpret_cast<ID3D11VideoDecoderOutputView**>(
-      av_calloc(32, sizeof(ID3D11VideoDecoderOutputView*)));
+  if (m_avD3D11Context)
+  {
+    m_avD3D11Context->cfg =
+        reinterpret_cast<D3D11_VIDEO_DECODER_CONFIG*>(av_mallocz(sizeof(D3D11_VIDEO_DECODER_CONFIG)));
+    m_avD3D11Context->surface = reinterpret_cast<ID3D11VideoDecoderOutputView**>(
+        av_calloc(32, sizeof(ID3D11VideoDecoderOutputView*)));
+    if (!m_avD3D11Context->cfg || !m_avD3D11Context->surface)
+    {
+      CLog::LogF(LOGERROR, "Failed to allocate D3D11VA context members");
+      av_freep(&m_avD3D11Context->cfg);
+      av_freep(&m_avD3D11Context->surface);
+    }
+  }
+  else
+  {
+    CLog::LogF(LOGERROR, "Failed to allocate D3D11VA context");
+  }
   m_bufferPool.reset();
 
   DX::Windowing()->Register(this);
@@ -1157,8 +1170,11 @@ CDecoder::~CDecoder()
   DX::Windowing()->Unregister(this);
 
   Close();
-  av_freep(&m_avD3D11Context->surface);
-  av_freep(&m_avD3D11Context->cfg);
+  if (m_avD3D11Context)
+  {
+    av_freep(&m_avD3D11Context->surface);
+    av_freep(&m_avD3D11Context->cfg);
+  }
   av_freep(&m_avD3D11Context);
 }
 

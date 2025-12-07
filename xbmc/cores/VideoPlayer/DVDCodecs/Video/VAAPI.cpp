@@ -759,6 +759,12 @@ bool CDecoder::Open(AVCodecContext* avctx, AVCodecContext* mainctx, const enum A
   vaapiFramesCtx->nb_surfaces = m_videoSurfaces.Size();
   VASurfaceID* surfaceIds =
       (VASurfaceID*)av_malloc(vaapiFramesCtx->nb_surfaces * sizeof(VASurfaceID));
+  if (!surfaceIds)
+  {
+    CLog::Log(LOGERROR, "VAAPI: Failed to allocate surface IDs array");
+    av_buffer_unref(&framesRef);
+    return false;
+  }
   for (int i = 0; i < vaapiFramesCtx->nb_surfaces; ++i)
     surfaceIds[i] = m_videoSurfaces.GetAtIndex(i);
   vaapiFramesCtx->surface_ids = surfaceIds;

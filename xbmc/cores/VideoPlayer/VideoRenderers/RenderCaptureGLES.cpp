@@ -15,10 +15,11 @@ CRenderCaptureGLES::~CRenderCaptureGLES()
 
 void CRenderCaptureGLES::BeginRender()
 {
-  if (m_bufferSize != m_width * m_height * 4)
+  const size_t requiredSize = static_cast<size_t>(m_width) * static_cast<size_t>(m_height) * 4;
+  if (m_bufferSize != requiredSize)
   {
     delete[] m_pixels;
-    m_bufferSize = m_width * m_height * 4;
+    m_bufferSize = requiredSize;
     m_pixels = new uint8_t[m_bufferSize];
   }
 }
