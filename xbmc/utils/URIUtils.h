@@ -117,7 +117,7 @@ public:
    \return true if the path has the given parent string, false otherwise.
    \sa IsProtocol, PathEquals
    */
-  static bool PathHasParent(std::string path, std::string parent, bool translate = false);
+  static bool PathHasParent(const std::string& path, const std::string& parent, bool translate = false);
 
   /*! \brief Check whether a path equals another path.
    Comparison is case-sensitive.
@@ -127,7 +127,7 @@ public:
    \return true if the paths are equal, false otherwise.
    \sa IsProtocol, PathHasParent
    */
-  static bool PathEquals(std::string path1, std::string path2, bool ignoreTrailingSlash = false, bool ignoreURLOptions = false);
+  static bool PathEquals(const std::string& path1, const std::string& path2, bool ignoreTrailingSlash = false, bool ignoreURLOptions = false);
 
   static bool IsAddonsPath(const std::string& strFile);
   static bool IsSourcesPath(const std::string& strFile);

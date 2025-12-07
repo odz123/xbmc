@@ -5523,14 +5523,17 @@ void CVideoPlayer::UpdateFileItemStreamDetails(CFileItem& item)
                                    subtitleInfo);
 
   //grab all the audio and subtitle info and save it
+  // Cache stream counts to avoid repeated lock acquisition and counting
+  const int audioStreamCount = GetAudioStreamCount();
+  const int subtitleStreamCount = GetSubtitleCount();
 
-  for (int i = 0; i < GetAudioStreamCount(); i++)
+  for (int i = 0; i < audioStreamCount; i++)
   {
     GetAudioStreamInfo(i, audioInfo);
     info->m_streamDetails.AddStream(new CStreamDetailAudio(audioInfo));
   }
 
-  for (int i = 0; i < GetSubtitleCount(); i++)
+  for (int i = 0; i < subtitleStreamCount; i++)
   {
     GetSubtitleStreamInfo(i, subtitleInfo);
     info->m_streamDetails.AddStream(new CStreamDetailSubtitle(subtitleInfo));

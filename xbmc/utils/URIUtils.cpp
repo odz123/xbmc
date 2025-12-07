@@ -541,41 +541,43 @@ bool URIUtils::IsProtocol(const std::string& url, const std::string &type)
   return StringUtils::StartsWithNoCase(url, type + "://");
 }
 
-bool URIUtils::PathHasParent(std::string path, std::string parent, bool translate /* = false */)
+bool URIUtils::PathHasParent(const std::string& path, const std::string& parent, bool translate /* = false */)
 {
-  if (translate)
-  {
-    path = CSpecialProtocol::TranslatePath(path);
-    parent = CSpecialProtocol::TranslatePath(parent);
-  }
+  // Only make copies when needed for translation
+  std::string pathCopy, parentCopy;
+  const std::string& pathRef = translate ? (pathCopy = CSpecialProtocol::TranslatePath(path), pathCopy) : path;
+  const std::string& parentRef = translate ? (parentCopy = CSpecialProtocol::TranslatePath(parent), parentCopy) : parent;
 
-  if (parent.empty())
+  if (parentRef.empty())
     return false;
 
-  if (path == parent)
+  if (pathRef == parentRef)
     return true;
 
-  // Make sure parent has a trailing slash
-  AddSlashAtEnd(parent);
+  // Make sure parent has a trailing slash - need a copy for modification
+  std::string parentWithSlash = parentRef;
+  AddSlashAtEnd(parentWithSlash);
 
-  return StringUtils::StartsWith(path, parent);
+  return StringUtils::StartsWith(pathRef, parentWithSlash);
 }
 
-bool URIUtils::PathEquals(std::string path1, std::string path2, bool ignoreTrailingSlash /* = false */, bool ignoreURLOptions /* = false */)
+bool URIUtils::PathEquals(const std::string& path1, const std::string& path2, bool ignoreTrailingSlash /* = false */, bool ignoreURLOptions /* = false */)
 {
-  if (ignoreURLOptions)
-  {
-    path1 = CURL(path1).GetWithoutOptions();
-    path2 = CURL(path2).GetWithoutOptions();
-  }
+  // Fast path: no modifications needed
+  if (!ignoreURLOptions && !ignoreTrailingSlash)
+    return (path1 == path2);
+
+  // Need to make copies for modification
+  std::string p1 = ignoreURLOptions ? CURL(path1).GetWithoutOptions() : path1;
+  std::string p2 = ignoreURLOptions ? CURL(path2).GetWithoutOptions() : path2;
 
   if (ignoreTrailingSlash)
   {
-    RemoveSlashAtEnd(path1);
-    RemoveSlashAtEnd(path2);
+    RemoveSlashAtEnd(p1);
+    RemoveSlashAtEnd(p2);
   }
 
-  return (path1 == path2);
+  return (p1 == p2);
 }
 
 bool URIUtils::IsRemote(const std::string& strFile)
