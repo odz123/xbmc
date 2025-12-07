@@ -519,6 +519,6 @@ std::string CNetworkBase::GetMaskByPrefixLength(uint8_t prefixLength)
 
   struct sockaddr_in sa;
   sa.sin_family = AF_INET;
-  sa.sin_addr.s_addr = htonl(~((1 << (32u - prefixLength)) - 1));;
+  sa.sin_addr.s_addr = htonl(~((1 << (32u - prefixLength)) - 1));
   return CNetworkBase::GetIpStr(reinterpret_cast<struct sockaddr*>(&sa));
 }

@@ -25,7 +25,7 @@ TEST(TestHttpResponse, General)
              "</html>\r\n";
   a.SetContent(content.c_str(), content.length());
 
-  response = a.Create();;
+  response = a.Create();
   EXPECT_EQ((unsigned int)210, response.size());
 
   refstr = "HTTP/1.1 200 OK\r\n"

@@ -74,7 +74,7 @@ bool CWeatherGUIInfo::GetBool(bool& value, const CGUIListItem *gitem, int contex
     ///////////////////////////////////////////////////////////////////////////////////////////////
     case WEATHER_IS_FETCHED:
       value = CServiceBroker::GetWeatherManager().IsFetched();
-      return true;;
+      return true;
   }
 
   return false;

@@ -102,7 +102,7 @@ CMediaDrmCryptoSession::~CMediaDrmCryptoSession()
 
 CCryptoSession* CMediaDrmCryptoSession::Create(const std::string& UUID, const std::string& cipherAlgo, const std::string& macAlgo)
 {
-  CMediaDrmCryptoSession *res = nullptr;;
+  CMediaDrmCryptoSession *res = nullptr;
   try
   {
     res = new CMediaDrmCryptoSession(UUID, cipherAlgo, macAlgo);

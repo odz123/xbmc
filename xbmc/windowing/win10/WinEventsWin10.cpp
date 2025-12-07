@@ -156,7 +156,7 @@ void CWinEventsWin10::InitEventHandlers(const CoreWindow& window)
     {
       m_smtc.ButtonPressed(CWinEventsWin10::OnSystemMediaButtonPressed);
     }
-    m_smtc.IsEnabled(true);;
+    m_smtc.IsEnabled(true);
     CServiceBroker::GetAnnouncementManager()->AddAnnouncer(this);
   }
   if (CSysInfo::GetWindowsDeviceFamily() == CSysInfo::WindowsDeviceFamily::Xbox)

@@ -225,7 +225,7 @@ void CSong::Serialize(CVariant& value) const
   value["genre"] = genre;
   value["duration"] = iDuration;
   value["track"] = iTrack;
-  value["year"] = atoi(strReleaseDate.c_str());;
+  value["year"] = atoi(strReleaseDate.c_str());
   value["musicbrainztrackid"] = strMusicBrainzTrackID;
   value["comment"] = strComment;
   value["mood"] = strMood;
