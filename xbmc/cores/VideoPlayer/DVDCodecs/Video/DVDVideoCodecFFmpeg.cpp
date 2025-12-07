@@ -1329,6 +1329,13 @@ CDVDVideoCodec::VCReturn CDVDVideoCodecFFmpeg::FilterProcess(AVFrame* frame)
 {
   int result;
 
+  // Defensive null checks for filter contexts
+  if (!m_pFilterIn || !m_pFilterOut)
+  {
+    CLog::Log(LOGERROR, "CDVDVideoCodecFFmpeg::FilterProcess - filter context is null");
+    return VC_ERROR;
+  }
+
   if (frame || (m_codecControlFlags & DVD_CODEC_CTRL_DRAIN))
   {
     result = av_buffersrc_add_frame(m_pFilterIn, frame);

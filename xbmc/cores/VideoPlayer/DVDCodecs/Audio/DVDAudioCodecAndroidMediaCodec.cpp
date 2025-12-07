@@ -251,6 +251,8 @@ PROCESSDECODER:
       CLog::Log(LOGERROR, "MediaCrypto::ExceptionCheck: <init>");
       xbmc_jnienv()->ExceptionDescribe();
       xbmc_jnienv()->ExceptionClear();
+      delete m_crypto;
+      m_crypto = nullptr;
       return false;
     }
   }
@@ -302,6 +304,8 @@ PROCESSDECODER:
         xbmc_jnienv()->ExceptionDescribe();
         xbmc_jnienv()->ExceptionClear();
         CLog::Log(LOGERROR, "CDVDAudioCodecAndroidMediaCodec::Open Failed creating raw decoder");
+        delete m_crypto;
+        m_crypto = nullptr;
         return false;
       }
       if (!m_decryptCodec)
@@ -314,6 +318,8 @@ PROCESSDECODER:
         {
           CLog::Log(LOGERROR,
                     "CDVDAudioCodecAndroidMediaCodec::Open() Failed opening FFmpeg decoder");
+          delete m_crypto;
+          m_crypto = nullptr;
           return false;
         }
       }
@@ -325,6 +331,8 @@ PROCESSDECODER:
       CLog::Log(
           LOGINFO,
           "CDVDAudioCodecAndroidMediaCodec::Open() Use default handling for non encrypted stream");
+      delete m_crypto;
+      m_crypto = nullptr;
       return false;
     }
   }
@@ -332,6 +340,8 @@ PROCESSDECODER:
   if (!ConfigureMediaCodec())
   {
     m_codec.reset();
+    delete m_crypto;
+    m_crypto = nullptr;
     return false;
   }
 

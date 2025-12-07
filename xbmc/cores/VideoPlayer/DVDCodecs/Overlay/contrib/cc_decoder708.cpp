@@ -751,6 +751,16 @@ void deleteWindow(cc708_service_decoder* decoder, int window)
   {
     clearWindowText(&decoder->windows[window]);
   }
+  // Free malloc'd row memory to prevent memory leaks
+  if (decoder->windows[window].memory_reserved)
+  {
+    for (int i = 0; i <= I708_MAX_ROWS; i++)
+    {
+      free(decoder->windows[window].rows[i]);
+      decoder->windows[window].rows[i] = nullptr;
+    }
+    decoder->windows[window].memory_reserved = 0;
+  }
   decoder->windows[window].is_defined = 0;
 }
 
@@ -1166,6 +1176,23 @@ CDecoderCC708::CDecoderCC708()
 
 CDecoderCC708::~CDecoderCC708()
 {
+  // Free all malloc'd window rows to prevent memory leaks
+  if (m_cc708decoders)
+  {
+    for (int svc = 0; svc < CCX_DECODERS_708_MAX_SERVICES; svc++)
+    {
+      for (int win = 0; win < I708_MAX_WINDOWS; win++)
+      {
+        if (m_cc708decoders[svc].windows[win].memory_reserved)
+        {
+          for (int row = 0; row <= I708_MAX_ROWS; row++)
+          {
+            free(m_cc708decoders[svc].windows[win].rows[row]);
+          }
+        }
+      }
+    }
+  }
   delete[] m_cc708decoders;
   cc_decoder_close(m_cc608decoder);
 }
