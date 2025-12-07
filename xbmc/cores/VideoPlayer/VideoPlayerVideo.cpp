@@ -718,7 +718,18 @@ bool CVideoPlayerVideo::ProcessDecoderOutput(double& frametime, double& pts)
       SStartMsg msg;
       msg.player = VideoPlayer_VIDEO;
       msg.cachetime = DVD_MSEC_TO_TIME(50);
-      msg.cachetotal = DVD_MSEC_TO_TIME(100);
+      // For FEL (Dolby Vision Full Enhancement Layer), the decoder buffers multiple frames
+      // before output. Account for this delay in the cache total to prevent audio desync.
+      if (m_hints.dovi_el_type == DOVIELType::TYPE_FEL && m_fFrameRate > 0)
+      {
+        auto advancedSettings = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings();
+        unsigned int bufferQueueCount = advancedSettings->m_videoDecoderStreamTypeStreamMinOrderedBufferQueueCount;
+        msg.cachetotal = static_cast<double>(bufferQueueCount) * DVD_TIME_BASE / m_fFrameRate;
+      }
+      else
+      {
+        msg.cachetotal = DVD_MSEC_TO_TIME(100);
+      }
       msg.timestamp = DVD_NOPTS_VALUE;
       m_messageParent.Put(std::make_shared<CDVDMsgType<SStartMsg>>(CDVDMsg::PLAYER_STARTED, msg));
     }
@@ -838,8 +849,19 @@ bool CVideoPlayerVideo::ProcessDecoderOutput(double& frametime, double& pts)
       m_syncState = IDVDStreamPlayer::SYNC_WAITSYNC;
       SStartMsg msg;
       msg.player = VideoPlayer_VIDEO;
-      msg.cachetime = DVD_MSEC_TO_TIME(50); //! @todo implement
-      msg.cachetotal = DVD_MSEC_TO_TIME(100); //! @todo implement
+      msg.cachetime = DVD_MSEC_TO_TIME(50);
+      // For FEL (Dolby Vision Full Enhancement Layer), the decoder buffers multiple frames
+      // before output. Account for this delay in the cache total to prevent audio desync.
+      if (m_hints.dovi_el_type == DOVIELType::TYPE_FEL && m_fFrameRate > 0)
+      {
+        auto advancedSettings = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings();
+        unsigned int bufferQueueCount = advancedSettings->m_videoDecoderStreamTypeStreamMinOrderedBufferQueueCount;
+        msg.cachetotal = static_cast<double>(bufferQueueCount) * DVD_TIME_BASE / m_fFrameRate;
+      }
+      else
+      {
+        msg.cachetotal = DVD_MSEC_TO_TIME(100);
+      }
       msg.timestamp = hasTimestamp ? (pts + m_renderManager.GetDelay() * 1000) : DVD_NOPTS_VALUE;
       m_messageParent.Put(std::make_shared<CDVDMsgType<SStartMsg>>(CDVDMsg::PLAYER_STARTED, msg));
     }
