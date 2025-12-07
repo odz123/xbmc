@@ -272,11 +272,11 @@ protected:
   void RemoveCaptures();
   CCriticalSection m_captCritSect;
   std::map<unsigned int, CRenderCapture*> m_captures;
-  static unsigned int m_nextCaptureId;
+  static std::atomic<unsigned int> m_nextCaptureId;
   unsigned int m_captureWaitCounter = 0;
   //set to true when adding something to m_captures, set to false when m_captures is made empty
   //std::list::empty() isn't thread safe, using an extra bool will save a lock per render when no captures are requested
-  bool m_hasCaptures = false;
+  std::atomic<bool> m_hasCaptures{false};
 
 private:
   bool CalcOverlayActiveArea(CRect& src, CRect& dst) const;

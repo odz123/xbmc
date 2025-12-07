@@ -45,7 +45,7 @@ void CRenderManager::CClockSync::Reset()
   m_enabled = false;
 }
 
-unsigned int CRenderManager::m_nextCaptureId = 0;
+std::atomic<unsigned int> CRenderManager::m_nextCaptureId{0};
 
 CRenderManager::CRenderManager(CDVDClock& clock, IRenderMsg* player)
   : m_dvdClock(clock), m_playerPort(player), m_dataCacheCore(CServiceBroker::GetDataCacheCore())
@@ -519,17 +519,20 @@ void CRenderManager::DeleteRenderer()
 
 unsigned int CRenderManager::AllocRenderCapture()
 {
+  std::lock_guard lock(m_captCritSect);
+
   if (m_pRenderer)
   {
     CRenderCapture* capture = m_pRenderer->GetRenderCapture();
     if (capture)
     {
-      m_captures[m_nextCaptureId] = capture;
-      return m_nextCaptureId++;
+      unsigned int id = m_nextCaptureId++;
+      m_captures[id] = capture;
+      return id;
     }
   }
 
-  return m_nextCaptureId;
+  return m_nextCaptureId.load();
 }
 
 void CRenderManager::ReleaseRenderCapture(unsigned int captureId)

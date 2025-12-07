@@ -75,7 +75,7 @@ CRendererVAAPIGL::~CRendererVAAPIGL()
 bool CRendererVAAPIGL::Configure(const VideoPicture& picture, float fps, unsigned int orientation)
 {
   CVaapiRenderPicture* pic = dynamic_cast<CVaapiRenderPicture*>(picture.videoBuffer);
-  if (pic->procPic.videoSurface == VA_INVALID_ID)
+  if (!pic || pic->procPic.videoSurface == VA_INVALID_ID)
   {
     m_isVAAPIBuffer = false;
   }

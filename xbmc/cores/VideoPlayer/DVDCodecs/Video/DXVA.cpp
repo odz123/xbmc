@@ -420,6 +420,9 @@ void CContext::QueryCaps()
     if (FAILED(m_pD3D11Device->GetVideoDecoderProfile(i, &m_input_list[i])))
     {
       CLog::Log(LOGINFO, "DXVA: failed getting video decoder profile");
+      delete[] m_input_list;
+      m_input_list = nullptr;
+      m_input_count = 0;
       return;
     }
     const dxva2_mode_t* mode = dxva2_find_mode(&m_input_list[i]);
