@@ -79,7 +79,7 @@ double CDVDCodecUtils::NormalizeFrameduration(double frameduration, bool* match)
   }
 }
 
-bool CDVDCodecUtils::IsH264AnnexB(std::string format, AVStream* avstream)
+bool CDVDCodecUtils::IsH264AnnexB(const std::string& format, AVStream* avstream)
 {
   assert(avstream->codecpar->codec_id == AV_CODEC_ID_H264
 #ifdef AV_CODEC_ID_H264_MVC

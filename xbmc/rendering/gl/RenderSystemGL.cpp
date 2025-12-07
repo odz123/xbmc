@@ -62,8 +62,17 @@ bool CRenderSystemGL::InitRenderSystem()
     glGetIntegerv(GL_NUM_EXTENSIONS, &n);
     if (n > 0)
     {
-      GLint i;
-      for (i = 0; i < n; i++)
+      // Pre-calculate total size to avoid repeated string reallocations
+      size_t totalSize = 0;
+      for (GLint i = 0; i < n; i++)
+      {
+        const char* extension = reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i));
+        if (extension)
+          totalSize += strlen(extension) + 1; // +1 for space
+      }
+      m_RenderExtensions.reserve(totalSize);
+
+      for (GLint i = 0; i < n; i++)
       {
         const char* extension = reinterpret_cast<const char*>(glGetStringi(GL_EXTENSIONS, i));
         if (extension)

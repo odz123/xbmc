@@ -908,6 +908,8 @@ void CVideoPlayerVideo::ProcessOverlays(const VideoPicture& picture, double pts)
     std::lock_guard lock(*m_pOverlayContainer);
 
     VecOverlays* pVecOverlays = m_pOverlayContainer->GetOverlays();
+    // Reserve capacity to avoid reallocations during overlay processing
+    overlays.reserve(pVecOverlays->size());
     auto it = pVecOverlays->begin();
 
     //Check all overlays and render those that should be rendered, based on time and forced
