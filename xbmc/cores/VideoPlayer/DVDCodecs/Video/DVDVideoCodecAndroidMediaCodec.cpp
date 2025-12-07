@@ -950,6 +950,12 @@ FAIL:
     m_crypto = nullptr;
   }
 
+  if (m_mpeg2_sequence)
+  {
+    delete m_mpeg2_sequence;
+    m_mpeg2_sequence = nullptr;
+  }
+
   if (m_jnivideoview)
   {
     m_jnivideoview->release();
