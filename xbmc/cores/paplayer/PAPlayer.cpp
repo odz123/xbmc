@@ -731,6 +731,10 @@ inline void PAPlayer::ProcessStreams(double &freeBufferTime)
 
 inline bool PAPlayer::ProcessStream(StreamInfo *si, double &freeBufferTime)
 {
+  // Guard against division by zero if sample rate is not valid
+  if (si->m_audioFormat.m_sampleRate == 0)
+    return false;
+
   /* if playback needs to start on this stream, do it */
   if (si == m_currentStream && !si->m_started)
   {
@@ -985,6 +989,10 @@ int64_t PAPlayer::GetTimeInternal()
   std::lock_guard lock(m_streamsLock);
 
   if (!m_currentStream)
+    return 0;
+
+  // Guard against division by zero if sample rate is not yet set
+  if (m_currentStream->m_audioFormat.m_sampleRate == 0)
     return 0;
 
   double time = ((double)m_currentStream->m_framesSent / (double)m_currentStream->m_audioFormat.m_sampleRate);

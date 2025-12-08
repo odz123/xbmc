@@ -81,9 +81,9 @@ void CEngineStats::GetDelay(AEDelayStatus& status)
   std::lock_guard lock(m_lock);
 
   status = m_sinkDelay;
-  if (m_pcmOutput)
+  if (m_pcmOutput && m_sinkSampleRate > 0)
     status.delay += (double)m_bufferedSamples / m_sinkSampleRate;
-  else
+  else if (!m_pcmOutput)
     status.delay +=
         static_cast<double>(m_bufferedSamples) * m_sinkFormat.m_streamInfo.GetDuration() / 1000;
 }
@@ -156,9 +156,9 @@ void CEngineStats::GetDelay(AEDelayStatus& status, CActiveAEStream *stream)
 
   status = m_sinkDelay;
   status.delay += static_cast<double>(m_sinkLatency);
-  if (m_pcmOutput)
+  if (m_pcmOutput && m_sinkSampleRate > 0)
     status.delay += (double)m_bufferedSamples / m_sinkSampleRate;
-  else
+  else if (!m_pcmOutput)
     status.delay +=
         static_cast<double>(m_bufferedSamples) * m_sinkFormat.m_streamInfo.GetDuration() / 1000;
 
@@ -182,9 +182,9 @@ void CEngineStats::GetSyncInfo(CAESyncInfo& info, CActiveAEStream *stream)
 
   AEDelayStatus status;
   status = m_sinkDelay;
-  if (m_pcmOutput)
+  if (m_pcmOutput && m_sinkSampleRate > 0)
     status.delay += (double)m_bufferedSamples / m_sinkSampleRate;
-  else
+  else if (!m_pcmOutput)
     status.delay +=
         static_cast<double>(m_bufferedSamples) * m_sinkFormat.m_streamInfo.GetDuration() / 1000;
 
@@ -242,10 +242,11 @@ float CEngineStats::GetWaterLevel()
 {
   std::lock_guard lock(m_lock);
 
-  if (m_pcmOutput)
+  if (m_pcmOutput && m_sinkSampleRate > 0)
     return static_cast<float>(m_bufferedSamples) / m_sinkSampleRate;
-  else
+  else if (!m_pcmOutput)
     return static_cast<float>(m_bufferedSamples * m_sinkFormat.m_streamInfo.GetDuration()) / 1000;
+  return 0.0f;
 }
 
 void CEngineStats::SetSuspended(bool state)
