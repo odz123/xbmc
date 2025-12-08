@@ -33,7 +33,8 @@ void Observable::RegisterObserver(Observer *obs)
 {
   std::lock_guard lock(m_obsCritSection);
 
-  if (!IsObserving(*obs))
+  // Check without re-acquiring lock (IsObserving also locks)
+  if (std::find(m_observers.begin(), m_observers.end(), obs) == m_observers.end())
   {
     m_observers.push_back(obs);
   }
@@ -64,9 +65,17 @@ void Observable::SetChanged(bool SetTo)
 }
 
 void Observable::SendMessage(const ObservableMessage message) const {
-  std::lock_guard lock(m_obsCritSection);
+  // Copy observers while holding the lock, then release before notifying
+  // to prevent deadlocks if observers try to register/unregister or access
+  // other locked resources during notification
+  std::vector<Observer*> observersCopy;
+  {
+    std::lock_guard lock(m_obsCritSection);
+    observersCopy = m_observers;
+  }
 
-  for (auto& observer : m_observers)
+  // Notify outside of lock to prevent deadlocks
+  for (auto* observer : observersCopy)
   {
     observer->Notify(*this, message);
   }

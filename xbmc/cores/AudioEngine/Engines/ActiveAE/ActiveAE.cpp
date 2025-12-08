@@ -2256,17 +2256,26 @@ bool CActiveAE::RunStages()
       // process output buffer, gui sounds, encode, viz
       if (out)
       {
-        // viz
+        // viz - collect callbacks under lock, call outside to prevent deadlocks
+        std::vector<IAudioCallback*> vizCallbacksCopy;
+        bool needsInitialize = false;
+        unsigned int initSampleRate = 0;
+        // Store audio data for callbacks: pairs of (data copy, sample count)
+        std::vector<std::pair<std::vector<float>, unsigned int>> pendingAudioData;
+
         {
           std::lock_guard lock(m_vizLock);
 
           if (!m_audioCallback.empty() && !m_streams.empty())
           {
+            // Copy callbacks for use outside lock
+            vizCallbacksCopy = m_audioCallback;
+
             if (!m_vizInitialized || !m_vizBuffers)
             {
               Configure();
-              for (auto& it : m_audioCallback)
-                it->OnInitialize(2, m_vizBuffers->m_format.m_sampleRate, 32);
+              needsInitialize = true;
+              initSampleRate = m_vizBuffers->m_format.m_sampleRate;
               m_vizInitialized = true;
             }
 
@@ -2299,8 +2308,10 @@ bool CActiveAE::RunStages()
               {
                 unsigned int samples = static_cast<unsigned int>(buf->pkt->nb_samples) *
                                        buf->pkt->config.channels / buf->pkt->planes;
-                for (auto& it : m_audioCallback)
-                  it->OnAudioData((float*)(buf->pkt->data[0]), samples);
+                // Copy audio data for callback outside lock
+                float* srcData = (float*)(buf->pkt->data[0]);
+                pendingAudioData.emplace_back(
+                    std::vector<float>(srcData, srcData + samples), samples);
                 buf->Return();
                 m_vizBuffers->m_outputSamples.pop_front();
               }
@@ -2308,6 +2319,21 @@ bool CActiveAE::RunStages()
           }
           else if (m_vizBuffers)
             m_vizBuffers->Flush();
+        }
+
+        // Call visualization callbacks outside of lock to prevent deadlocks
+        if (!vizCallbacksCopy.empty())
+        {
+          if (needsInitialize)
+          {
+            for (auto& cb : vizCallbacksCopy)
+              cb->OnInitialize(2, initSampleRate, 32);
+          }
+          for (const auto& audioData : pendingAudioData)
+          {
+            for (auto& cb : vizCallbacksCopy)
+              cb->OnAudioData(const_cast<float*>(audioData.first.data()), audioData.second);
+          }
         }
 
         // mix gui sounds

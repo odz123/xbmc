@@ -65,9 +65,18 @@ void CSubscription<Event, Owner>::Cancel()
 template<typename Event, typename Owner>
 void CSubscription<Event, Owner>::HandleEvent(const Event& event)
 {
-  std::lock_guard lock(m_criticalSection);
+  // Copy owner and handler under lock, then release before calling
+  // to prevent deadlocks if handler tries to access locked resources
+  Owner* owner = nullptr;
+  Fn handler = nullptr;
+  {
+    std::lock_guard lock(m_criticalSection);
+    owner = m_owner;
+    handler = m_eventHandler;
+  }
 
-  if (m_owner)
-    (m_owner->*m_eventHandler)(event);
+  // Call handler outside of lock to prevent deadlocks
+  if (owner)
+    (owner->*handler)(event);
 }
 }

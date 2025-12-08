@@ -324,26 +324,51 @@ void CGenericTouchInputHandler::saveLastTouch()
 
 void CGenericTouchInputHandler::OnTimeout()
 {
-  std::lock_guard lock(m_critical);
+  // Collect callback info under lock, call callbacks outside to prevent deadlocks
+  enum class TimeoutAction { None, SingleTouchHold, MultiTouchHold };
+  TimeoutAction action = TimeoutAction::None;
+  float x1 = 0, y1 = 0, x2 = 0, y2 = 0;
 
-  switch (m_gestureState)
   {
-    case TouchGestureSingleTouch:
-      setGestureState(TouchGestureSingleTouchHold);
+    std::lock_guard lock(m_critical);
 
-      OnSingleTouchHold(m_pointers[0].down.x, m_pointers[0].down.y);
-      OnLongPress(m_pointers[0].down.x, m_pointers[0].down.y, 1);
+    switch (m_gestureState)
+    {
+      case TouchGestureSingleTouch:
+        setGestureState(TouchGestureSingleTouchHold);
+        action = TimeoutAction::SingleTouchHold;
+        x1 = m_pointers[0].down.x;
+        y1 = m_pointers[0].down.y;
+        break;
+
+      case TouchGestureMultiTouchStart:
+        if (!m_pointers[0].moving && !m_pointers[1].moving)
+        {
+          setGestureState(TouchGestureMultiTouchHold);
+          action = TimeoutAction::MultiTouchHold;
+          x1 = m_pointers[0].down.x;
+          y1 = m_pointers[0].down.y;
+          x2 = m_pointers[1].down.x;
+          y2 = m_pointers[1].down.y;
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  // Call callbacks outside of lock to prevent deadlocks
+  switch (action)
+  {
+    case TimeoutAction::SingleTouchHold:
+      OnSingleTouchHold(x1, y1);
+      OnLongPress(x1, y1, 1);
       break;
 
-    case TouchGestureMultiTouchStart:
-      if (!m_pointers[0].moving && !m_pointers[1].moving)
-      {
-        setGestureState(TouchGestureMultiTouchHold);
-
-        OnMultiTouchHold(m_pointers[0].down.x, m_pointers[0].down.y);
-        OnLongPress(std::abs((m_pointers[0].down.x + m_pointers[1].down.x) / 2),
-                    std::abs((m_pointers[0].down.y + m_pointers[1].down.y) / 2), 2);
-      }
+    case TimeoutAction::MultiTouchHold:
+      OnMultiTouchHold(x1, y1);
+      OnLongPress(std::abs((x1 + x2) / 2), std::abs((y1 + y2) / 2), 2);
       break;
 
     default:

@@ -363,10 +363,17 @@ void CRssReader::UpdateObserver()
   getFeed(feed);
   if (!feed.empty())
   {
-    std::lock_guard lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+    // Get observer pointer under lock, then call outside to prevent deadlocks
+    // The observer is responsible for acquiring any locks it needs (e.g., GfxContext)
+    IRssObserver* observer = nullptr;
+    {
+      std::lock_guard lock(CServiceBroker::GetWinSystem()->GetGfxContext());
+      observer = m_pObserver;
+    }
 
-    if (m_pObserver) // need to check again when locked to make sure observer wasnt removed
-      m_pObserver->OnFeedUpdate(feed);
+    // Call observer outside of GfxContext lock to prevent deadlocks
+    if (observer)
+      observer->OnFeedUpdate(feed);
   }
 }
 
