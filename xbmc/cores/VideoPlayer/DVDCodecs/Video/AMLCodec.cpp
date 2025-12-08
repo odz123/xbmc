@@ -2554,7 +2554,9 @@ bool CAMLCodec::GetNextOrderedBuffer()
   m_cur_pts = orderedBuffer.pts;
   m_bufferIndex = orderedBuffer.buffer.index;
 
-  if (m_cur_pts <= m_last_pts)
+  // Only warn about PTS going backwards if m_last_pts has a valid value
+  // (not DVD_NOPTS_VALUE which is used as an uninitialized sentinel)
+  if (m_last_pts != DVD_NOPTS_VALUE && m_cur_pts <= m_last_pts)
     logM(LOGWARNING, "CAMLCodec", "current pts:[{}] <= last pts:[{}]", m_cur_pts, m_last_pts);
 
   logM(LOGINFO, "CAMLCodec", "buffer size:[{}] index:[{}] pts:[{}]", size, m_bufferIndex,
