@@ -483,7 +483,7 @@ bool CInputManager::OnKey(const CKey& key)
 {
   bool bHandled = false;
 
-  for (auto handler : m_keyboardHandlers)
+  for (const auto& handler : m_keyboardHandlers)
   {
     if (handler->OnKeyPress(key))
     {

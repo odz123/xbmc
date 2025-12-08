@@ -468,7 +468,7 @@ void CGUIDialogSmartPlaylistRule::OnField()
   // check if operator is still valid. if not, reset to first valid one
   std::vector< std::pair<std::string, int> > validOperators = GetValidOperators(m_rule);
   bool isValid = false;
-  for (auto op : validOperators)
+  for (const auto& op : validOperators)
     if (std::get<0>(op) == std::get<0>(OperatorLabel(m_rule.m_operator)))
       isValid = true;
   if (!isValid)
@@ -484,7 +484,7 @@ void CGUIDialogSmartPlaylistRule::OnOperator()
   CGUIDialogSelect* dialog = CServiceBroker::GetGUI()->GetWindowManager().GetWindow<CGUIDialogSelect>(WINDOW_DIALOG_SELECT);
   dialog->Reset();
   dialog->SetHeading(CVariant{ 16023 });
-  for (auto label : labels)
+  for (const auto& label : labels)
     dialog->Add(std::get<0>(label));
   dialog->SetSelected(CSmartPlaylistRule::GetLocalizedOperator(m_rule.m_operator));
   dialog->Open();

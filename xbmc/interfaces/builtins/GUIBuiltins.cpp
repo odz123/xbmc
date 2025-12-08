@@ -86,21 +86,23 @@ static int ActivateWindow(const std::vector<std::string>& params2)
     // we retain history, so it makes sense to not switch to the same window in
     // that case
     bool bIsSameStartFolder = true;
+    auto& windowManager = CServiceBroker::GetGUI()->GetWindowManager();
     if (!params.empty())
     {
-      CGUIWindow *activeWindow = CServiceBroker::GetGUI()->GetWindowManager().GetWindow(CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow());
+      CGUIWindow *activeWindow = windowManager.GetWindow(windowManager.GetActiveWindow());
       if (activeWindow && activeWindow->IsMediaWindow())
         bIsSameStartFolder = static_cast<CGUIMediaWindow*>(activeWindow)->IsSameStartFolder(params[0]);
     }
 
     // activate window only if window and path differ from the current active window
-    if (iWindow != CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow() || !bIsSameStartFolder)
+    int activeWindow = windowManager.GetActiveWindow();
+    if (iWindow != activeWindow || !bIsSameStartFolder)
     {
       // if the window doesn't change, make sure it knows it's gonna be replaced
       // this ensures setting the start directory if we switch paths
       // if we change windows, that's done anyway
       if (Replace && !params.empty() &&
-          iWindow == CServiceBroker::GetGUI()->GetWindowManager().GetActiveWindow())
+          iWindow == activeWindow)
         params.emplace_back("replace");
 
       auto& components = CServiceBroker::GetAppComponents();

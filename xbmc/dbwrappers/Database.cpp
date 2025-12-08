@@ -253,7 +253,7 @@ void CDatabase::Split(const std::string& strFileNameAndPath,
 
 std::string CDatabase::PrepareSQL(std::string strStmt, ...) const
 {
-  std::string strResult = "";
+  std::string strResult;
 
   if (nullptr != m_pDB)
   {

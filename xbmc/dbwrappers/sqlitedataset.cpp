@@ -373,7 +373,7 @@ bool SqliteDatabase::exists(void)
   snprintf(sqlcmd, sizeof(sqlcmd), "SELECT * FROM sqlite_master");
   if ((last_err = sqlite3_exec(getHandle(), sqlcmd, &callback, &res, nullptr)) == SQLITE_OK)
   {
-    bRet = (res.records.size() > 0);
+    bRet = !res.records.empty();
   }
 
   return bRet;
@@ -576,7 +576,7 @@ void SqliteDatabase::rollback_transaction()
 std::string SqliteDatabase::vprepare(const char* format, va_list args)
 {
   std::string strFormat = format;
-  std::string strResult = "";
+  std::string strResult;
   char* p;
   size_t pos;
 

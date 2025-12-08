@@ -271,13 +271,14 @@ bool CMusicThumbLoader::FillLibraryArt(CFileItem &item)
     std::string artname;
     std::map<std::string, std::string> artmap;
     std::map<std::string, std::string> discartmap;
-    for (auto artitem : art)
+    for (const auto& artitem : art)
     {
       /* Add art to artmap, naming according to media type.
       For example: artists have "thumb", "fanart", "poster" etc.,
       albums have "thumb", "artist.thumb", "artist.fanart",... "artist1.thumb", "artist1.fanart" etc.,
       songs have "thumb", "album.thumb", "artist.thumb", "albumartist.thumb", "albumartist1.thumb" etc.
       */
+      std::string prefix = artitem.prefix;
       if (tag.GetType() == artitem.mediaType)
         artname = artitem.artType;
       else if (artitem.prefix.empty())
@@ -285,8 +286,8 @@ bool CMusicThumbLoader::FillLibraryArt(CFileItem &item)
       else
       {
         if (tag.GetType() == MediaTypeAlbum)
-          StringUtils::Replace(artitem.prefix, "albumartist", "artist");
-        artname = artitem.prefix + "." + artitem.artType;
+          StringUtils::Replace(prefix, "albumartist", "artist");
+        artname = prefix + "." + artitem.artType;
       }
 
       // Pull out album art for this specific disc e.g. "thumb2", skip art for other discs
