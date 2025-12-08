@@ -217,7 +217,11 @@ void CVideoPlayerAudio::UpdatePlayerInfo()
   //print the inverse of the resample ratio, since that makes more sense
   //if the resample ratio is 0.5, then we're playing twice as fast
   if (m_synctype == SYNC_RESAMPLE)
-    s << ", rr:" << std::fixed << std::setprecision(5) << 1.0 / m_audioSink.GetResampleRatio();
+  {
+    double resampleRatio = m_audioSink.GetResampleRatio();
+    if (resampleRatio > 0.0)
+      s << ", rr:" << std::fixed << std::setprecision(5) << 1.0 / resampleRatio;
+  }
 
   SInfo info;
   info.info = s.str();
