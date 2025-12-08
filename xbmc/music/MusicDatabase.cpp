@@ -2688,6 +2688,7 @@ bool CMusicDatabase::GetAlbumsByArtist(int idArtist, std::vector<int>& albums) c
       return false;
     }
 
+    albums.reserve(m_pDS->num_rows());
     while (!m_pDS->eof())
     {
       albums.push_back(m_pDS->fv("idAlbum").get_asInt());
@@ -4268,6 +4269,7 @@ bool CMusicDatabase::CleanupSongs(CGUIDialogProgress* progressDialog /*= nullptr
       }
 
       std::vector<std::string> songIds;
+      songIds.reserve(iRowsFound);
       while (!m_pDS->eof())
       {
         songIds.push_back(m_pDS->fv("song.idSong").get_asString());

@@ -313,12 +313,11 @@ void CApplicationStackHelper::SetRegisteredStackTotalTimeMs(const CFileItem& ite
 CApplicationStackHelper::StackPartInformationPtr CApplicationStackHelper::GetStackPartInformation(
     const std::string& key)
 {
-  if (m_stackmap.count(key) == 0)
-  {
-    StackPartInformationPtr value(new StackPartInformation());
-    m_stackmap[key] = value;
-  }
-  return m_stackmap[key];
+  // Use try_emplace for efficient single-lookup insert-or-find
+  auto [it, inserted] = m_stackmap.try_emplace(key);
+  if (inserted)
+    it->second = std::make_shared<StackPartInformation>();
+  return it->second;
 }
 
 CApplicationStackHelper::StackPartInformationPtr CApplicationStackHelper::GetStackPartInformation(

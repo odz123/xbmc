@@ -3330,6 +3330,7 @@ void CVideoDatabase::GetBookMarksForFile(const std::string& strFilenameAndPath, 
 
       std::string strSQL=PrepareSQL("select * from bookmark where idFile=%i and type=%i order by timeInSeconds", idFile, type);
       m_pDS->query( strSQL );
+      bookmarks.reserve(m_pDS->num_rows());
       while (!m_pDS->eof())
       {
         CBookmark bookmark;
