@@ -577,6 +577,23 @@ void PAPlayer::Process()
     double freeBufferTime = 0.0;
     ProcessStreams(freeBufferTime);
 
+    /* invoke deferred callbacks outside of locks to prevent deadlocks */
+    if (m_deferredCallbacks.m_queueNextItem)
+    {
+      m_callback.OnQueueNextItem();
+      m_deferredCallbacks.m_queueNextItem = false;
+    }
+    if (m_deferredCallbacks.m_playBackStarted)
+    {
+      m_callback.OnPlayBackStarted(m_deferredCallbacks.m_startedFileItem);
+      m_deferredCallbacks.m_playBackStarted = false;
+    }
+    if (m_deferredCallbacks.m_avStarted)
+    {
+      m_callback.OnAVStarted(m_deferredCallbacks.m_avStartedFileItem);
+      m_deferredCallbacks.m_avStarted = false;
+    }
+
     // if none of our streams wants at least 10ms of data, we sleep
     if (freeBufferTime < 0.01)
     {
@@ -653,7 +670,7 @@ inline void PAPlayer::ProcessStreams(double &freeBufferTime)
           si->m_waitOnDrain = false;
         }
         si->m_prepareTriggered = true;
-        m_callback.OnQueueNextItem();
+        m_deferredCallbacks.m_queueNextItem = true; // Deferred to prevent deadlocks
       }
 
       /* remove the stream */
@@ -672,7 +689,7 @@ inline void PAPlayer::ProcessStreams(double &freeBufferTime)
               si->m_stream->Drain(true);
               si->m_waitOnDrain = false;
             }
-            m_callback.OnQueueNextItem();
+            m_deferredCallbacks.m_queueNextItem = true; // Deferred to prevent deadlocks
             si->m_prepareTriggered = true;
           }
           m_currentStream = nullptr;
@@ -699,7 +716,7 @@ inline void PAPlayer::ProcessStreams(double &freeBufferTime)
     if (si->m_prepareNextAtFrame > 0 && !si->m_prepareTriggered && si->m_framesSent >= si->m_prepareNextAtFrame)
     {
       si->m_prepareTriggered = true;
-      m_callback.OnQueueNextItem();
+      m_deferredCallbacks.m_queueNextItem = true; // Deferred to prevent deadlocks
     }
 
     // it is time to start playing the next stream?
@@ -708,7 +725,7 @@ inline void PAPlayer::ProcessStreams(double &freeBufferTime)
       if (!si->m_prepareTriggered)
       {
         si->m_prepareTriggered = true;
-        m_callback.OnQueueNextItem();
+        m_deferredCallbacks.m_queueNextItem = true; // Deferred to prevent deadlocks
       }
 
       if (!m_isFinished)
@@ -744,14 +761,20 @@ inline bool PAPlayer::ProcessStream(StreamInfo *si, double &freeBufferTime)
       si->m_stream->Resume();
     si->m_stream->FadeVolume(0.0f, 1.0f, m_upcomingCrossfadeMS);
     if (m_signalStarted)
-      m_callback.OnPlayBackStarted(*si->m_fileItem);
+    {
+      // Deferred callback to prevent deadlocks
+      m_deferredCallbacks.m_playBackStarted = true;
+      m_deferredCallbacks.m_startedFileItem = *si->m_fileItem;
+    }
     m_signalStarted = true;
     if (m_fullScreen)
     {
       CServiceBroker::GetAppMessenger()->PostMsg(TMSG_SWITCHTOFULLSCREEN);
       m_fullScreen = false;
     }
-    m_callback.OnAVStarted(*si->m_fileItem);
+    // Deferred callback to prevent deadlocks
+    m_deferredCallbacks.m_avStarted = true;
+    m_deferredCallbacks.m_avStartedFileItem = *si->m_fileItem;
   }
 
   /* if we have not started yet and the stream has been primed */
@@ -836,9 +859,15 @@ inline bool PAPlayer::ProcessStream(StreamInfo *si, double &freeBufferTime)
 
       UpdateGUIData(si);
       if (m_signalStarted)
-        m_callback.OnPlayBackStarted(*si->m_fileItem);
+      {
+        // Deferred callback to prevent deadlocks
+        m_deferredCallbacks.m_playBackStarted = true;
+        m_deferredCallbacks.m_startedFileItem = *si->m_fileItem;
+      }
       m_signalStarted = true;
-      m_callback.OnAVStarted(*si->m_fileItem);
+      // Deferred callback to prevent deadlocks
+      m_deferredCallbacks.m_avStarted = true;
+      m_deferredCallbacks.m_avStartedFileItem = *si->m_fileItem;
     }
     else
     {

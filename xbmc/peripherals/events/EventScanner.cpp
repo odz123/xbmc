@@ -136,12 +136,17 @@ void CEventScanner::Process()
 
   while (!m_bStop)
   {
+    // Check if we have active locks - copy state under lock to avoid holding
+    // lock during callback invocation which could cause deadlocks
+    bool shouldProcess = false;
     {
       std::lock_guard lock(m_lockMutex);
-
-      if (m_activeLocks.empty())
-        m_callback.ProcessEvents();
+      shouldProcess = m_activeLocks.empty();
     }
+
+    // Invoke callback outside of lock to prevent deadlocks
+    if (shouldProcess)
+      m_callback.ProcessEvents();
 
     m_scanFinishedEvent.Set();
 

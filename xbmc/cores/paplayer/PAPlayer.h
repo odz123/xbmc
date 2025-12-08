@@ -114,6 +114,24 @@ private:
   bool m_signalSpeedChange = false; /* true if OnPlaybackSpeedChange needs to be called */
   bool m_signalStarted = true;
   std::atomic_int m_playbackSpeed;           /* the playback speed (1 = normal) */
+
+  // Deferred callbacks to be invoked outside of locks to prevent deadlocks
+  struct DeferredCallbacks
+  {
+    bool m_queueNextItem = false;
+    bool m_playBackStarted = false;
+    bool m_avStarted = false;
+    CFileItem m_startedFileItem;
+    CFileItem m_avStartedFileItem;
+
+    void Clear()
+    {
+      m_queueNextItem = false;
+      m_playBackStarted = false;
+      m_avStarted = false;
+    }
+  };
+  DeferredCallbacks m_deferredCallbacks;
   bool m_isPlaying = false;
   bool m_isPaused = false;
   bool m_isFinished = false; /* if there are no more songs in the queue */

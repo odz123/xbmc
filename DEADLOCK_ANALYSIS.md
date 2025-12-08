@@ -10,18 +10,22 @@ This document presents a comprehensive analysis of potential deadlock patterns i
 |----------|----------------|-------|-----------|
 | CRITICAL | 4 | 4 | 0 |
 | HIGH | 4 | 4 | 0 |
-| MEDIUM | 5+ | 3 | 2+ |
+| MEDIUM | 5+ | 5+ | 0 |
 
 **Recent fixes applied:**
 - ✅ Observer pattern callbacks (commit d315627)
 - ✅ Audio visualization callbacks (commit d315627)
-- ✅ Touch input handler callbacks (this commit)
+- ✅ Touch input handler callbacks (commit 85ceedd)
 - ✅ EventStream subscription callbacks (commit d315627)
 - ✅ RSS Reader callbacks (commit d315627)
 - ✅ Pipe file listener callbacks (commit d315627)
-- ✅ ActorProtocol RAII refactoring (this commit)
-- ✅ AlarmClock recursive lock pattern (this commit)
-- ✅ RenderManager lock ordering documentation (this commit)
+- ✅ ActorProtocol RAII refactoring (commit 85ceedd)
+- ✅ AlarmClock recursive lock pattern (commit 85ceedd)
+- ✅ RenderManager lock ordering documentation (commit 85ceedd)
+- ✅ EventScanner ProcessEvents callback (this commit)
+- ✅ JobManager CancelJobs callbacks (this commit)
+- ✅ JobManager QueueNextJob external call (this commit)
+- ✅ PAPlayer ProcessStreams/ProcessStream callbacks (this commit)
 
 ---
 
@@ -258,7 +262,7 @@ void Message::Release()
 ### 12. JobManager External Service Call Under Lock
 
 **File:** `xbmc/utils/JobManager.cpp:143-150`
-**Severity:** MEDIUM
+**Severity:** MEDIUM → ✅ **FIXED**
 
 ```cpp
 void CJobQueue::QueueNextJob()
@@ -271,6 +275,69 @@ void CJobQueue::QueueNextJob()
 ```
 
 **Problem:** External service broker called while holding queue lock.
+
+**Fix Applied:** Refactored `QueueNextJob()` to release lock before calling `AddJob()`, then re-acquire to verify state and update internal structures. This prevents potential deadlocks when `AddJob` acquires `CJobManager::m_section`.
+
+---
+
+### 14. EventScanner ProcessEvents Callback Under Lock
+
+**File:** `xbmc/peripherals/events/EventScanner.cpp:133-144`
+**Severity:** MEDIUM → ✅ **FIXED**
+
+```cpp
+void CEventScanner::Process()
+{
+  while (!m_bStop)
+  {
+    {
+      std::lock_guard lock(m_lockMutex);
+      if (m_activeLocks.empty())
+        m_callback.ProcessEvents();  // CALLBACK WHILE HOLDING LOCK
+    }
+```
+
+**Problem:** Peripheral event processing callback invoked while holding `m_lockMutex`.
+
+**Fix Applied:** Copy the lock state under lock, release lock, then invoke callback outside of lock.
+
+---
+
+### 15. JobManager CancelJobs Callbacks Under Lock
+
+**File:** `xbmc/utils/JobManager.cpp:200-222`
+**Severity:** MEDIUM → ✅ **FIXED**
+
+```cpp
+void CJobManager::CancelJobs()
+{
+  std::unique_lock lock(m_section);
+  // ...
+  std::for_each(m_jobQueue[priority].begin(), m_jobQueue[priority].end(), [](CWorkItem& wi) {
+    if (wi.m_callback)
+      wi.m_callback->OnJobAbort(wi.m_id, wi.m_job);  // CALLBACK WHILE HOLDING LOCK
+  });
+```
+
+**Problem:** `OnJobAbort` callbacks invoked while holding `m_section` lock.
+
+**Fix Applied:** Collect all work items that need callbacks, release lock, invoke callbacks outside of lock, then re-acquire lock to complete cleanup.
+
+---
+
+### 16. PAPlayer ProcessStreams Callbacks Under Lock
+
+**File:** `xbmc/cores/paplayer/PAPlayer.cpp:624-747`
+**Severity:** MEDIUM → ✅ **FIXED**
+
+Multiple callbacks invoked while holding `m_streamsLock`:
+- `m_callback.OnQueueNextItem()` at multiple locations
+- `m_callback.OnPlayBackStarted()` in ProcessStream
+- `m_callback.OnAVStarted()` in ProcessStream
+
+**Problem:** Player callbacks invoked while holding streams lock, risking deadlock with GUI/application layers.
+
+**Fix Applied:** Implemented a `DeferredCallbacks` struct to capture callback state. Callbacks are now set as flags with copied file items inside the lock, then invoked outside the lock in the main `Process()` loop after `ProcessStreams()` returns.
 
 ---
 
@@ -410,24 +477,27 @@ if (m_signalSpeedChange)
 
 ## Appendix: Files Reviewed
 
-| File | Findings |
-|------|----------|
-| `xbmc/utils/Observer.cpp` | Callback under lock |
-| `xbmc/utils/EventStreamDetail.h` | Callback under lock |
-| `xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp` | Multiple callback issues |
-| `xbmc/input/touch/generic/GenericTouchInputHandler.cpp` | Multiple callback issues |
-| `xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp` | Triple lock, explicit deadlock fix |
-| `xbmc/interfaces/python/PythonInvoker.cpp` | GIL interaction issues |
-| `xbmc/interfaces/legacy/CallbackHandler.cpp` | Documented deadlock avoidance |
-| `xbmc/utils/RssReader.cpp` | Callback under GfxContext lock |
-| `xbmc/filesystem/PipeFile.cpp` | Callback under lock |
-| `xbmc/settings/lib/SettingsManager.cpp` | Dual lock pattern |
-| `xbmc/utils/ActorProtocol.cpp` | Manual lock/unlock |
-| `xbmc/utils/JobManager.cpp` | External call under lock |
-| `xbmc/utils/AlarmClock.cpp` | Recursive lock dependency |
-| `xbmc/threads/Event.h` | Documented lock order |
+| File | Findings | Status |
+|------|----------|--------|
+| `xbmc/utils/Observer.cpp` | Callback under lock | ✅ Fixed |
+| `xbmc/utils/EventStreamDetail.h` | Callback under lock | ✅ Fixed |
+| `xbmc/cores/AudioEngine/Engines/ActiveAE/ActiveAE.cpp` | Multiple callback issues | ✅ Fixed |
+| `xbmc/input/touch/generic/GenericTouchInputHandler.cpp` | Multiple callback issues | ✅ Fixed |
+| `xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp` | Triple lock, explicit deadlock fix | ⚠️ Documented |
+| `xbmc/interfaces/python/PythonInvoker.cpp` | GIL interaction issues | ⚠️ Documented |
+| `xbmc/interfaces/legacy/CallbackHandler.cpp` | Documented deadlock avoidance | ⚠️ Already handled |
+| `xbmc/utils/RssReader.cpp` | Callback under GfxContext lock | ✅ Fixed |
+| `xbmc/filesystem/PipeFile.cpp` | Callback under lock | ✅ Fixed |
+| `xbmc/settings/lib/SettingsManager.cpp` | Dual lock pattern | ✅ Already safe |
+| `xbmc/utils/ActorProtocol.cpp` | Manual lock/unlock | ✅ Fixed |
+| `xbmc/utils/JobManager.cpp` | External call under lock, callbacks under lock | ✅ Fixed |
+| `xbmc/utils/AlarmClock.cpp` | Recursive lock dependency | ✅ Fixed |
+| `xbmc/threads/Event.h` | Documented lock order | ⚠️ Documented |
+| `xbmc/peripherals/events/EventScanner.cpp` | Callback under lock | ✅ Fixed |
+| `xbmc/cores/paplayer/PAPlayer.cpp` | Multiple callbacks under lock | ✅ Fixed |
 
 ---
 
 *Analysis performed: December 2025*
 *Total potential deadlock patterns identified: 19+*
+*All identified patterns have been fixed or documented.*

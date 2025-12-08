@@ -142,19 +142,47 @@ void CJobQueue::OnJobNotify(CJob* job)
 
 void CJobQueue::QueueNextJob()
 {
-  std::lock_guard lock(m_section);
-
-  while (m_jobQueue.size() && m_processing.size() < m_jobsAtOnce)
+  // Process jobs one at a time to avoid holding lock during external calls
+  while (true)
   {
-    CJobPointer &job = m_jobQueue.back();
-    job.m_id = CServiceBroker::GetJobManager()->AddJob(job.m_job, this, m_priority);
-    if (job.m_id > 0)
+    CJob* jobToAdd = nullptr;
+    CJob::PRIORITY priority;
+
     {
-      m_processing.emplace_back(job);
-      m_jobQueue.pop_back();
-      return;
+      std::lock_guard lock(m_section);
+
+      if (m_jobQueue.empty() || m_processing.size() >= m_jobsAtOnce)
+        return;
+
+      // Get the job to add but don't remove it yet
+      CJobPointer& job = m_jobQueue.back();
+      jobToAdd = job.m_job;
+      priority = m_priority;
     }
-    m_jobQueue.pop_back();
+
+    // Call AddJob outside of lock to prevent deadlocks
+    unsigned int jobId = CServiceBroker::GetJobManager()->AddJob(jobToAdd, this, priority);
+
+    {
+      std::lock_guard lock(m_section);
+
+      // Verify the job is still in the queue (could have been cancelled)
+      if (m_jobQueue.empty())
+        return;
+
+      CJobPointer& job = m_jobQueue.back();
+      if (job.m_job != jobToAdd)
+        return; // Job was removed, stop processing
+
+      job.m_id = jobId;
+      if (jobId > 0)
+      {
+        m_processing.emplace_back(job);
+        m_jobQueue.pop_back();
+        return;
+      }
+      m_jobQueue.pop_back();
+    }
   }
 }
 
@@ -199,27 +227,48 @@ void CJobManager::Restart()
 
 void CJobManager::CancelJobs()
 {
+  // Collect work items that need callbacks invoked - we must invoke these
+  // outside the lock to prevent deadlocks
+  std::vector<CWorkItem> itemsToAbort;
+
   std::unique_lock lock(m_section);
 
   m_running = false;
 
-  // clear any pending jobs
+  // collect any pending jobs and their callbacks
   for (unsigned int priority = CJob::PRIORITY_LOW_PAUSABLE; priority <= CJob::PRIORITY_DEDICATED; ++priority)
   {
-    std::for_each(m_jobQueue[priority].begin(), m_jobQueue[priority].end(), [](CWorkItem& wi) {
+    for (auto& wi : m_jobQueue[priority])
+    {
       if (wi.m_callback)
-        wi.m_callback->OnJobAbort(wi.m_id, wi.m_job);
-      wi.FreeJob();
-    });
+        itemsToAbort.push_back(wi);
+      else
+        wi.FreeJob(); // No callback, free immediately
+    }
     m_jobQueue[priority].clear();
   }
 
-  // cancel any callbacks on jobs still processing
-  std::for_each(m_processing.begin(), m_processing.end(), [](CWorkItem& wi) {
+  // collect callbacks for jobs still processing
+  for (auto& wi : m_processing)
+  {
     if (wi.m_callback)
-      wi.m_callback->OnJobAbort(wi.m_id, wi.m_job);
-    wi.Cancel();
-  });
+      itemsToAbort.push_back(wi);
+    wi.Cancel(); // Mark as cancelled
+  }
+
+  // Release lock before invoking callbacks to prevent deadlocks
+  lock.unlock();
+
+  // Invoke OnJobAbort callbacks outside of lock
+  for (auto& item : itemsToAbort)
+  {
+    if (item.m_callback)
+      item.m_callback->OnJobAbort(item.m_id, item.m_job);
+    item.FreeJob();
+  }
+
+  // Re-acquire lock to finish cleanup
+  lock.lock();
 
   // tell our workers to finish
   while (m_workers.size())
