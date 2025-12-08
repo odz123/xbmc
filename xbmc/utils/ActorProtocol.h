@@ -72,6 +72,7 @@ private:
 
 class Protocol
 {
+  friend class Message; // Allow Message to access criticalSection for RAII locking
 public:
   Protocol(std::string name, CEvent* inEvent, CEvent* outEvent)
     : portName(std::move(name)), containerInEvent(inEvent), containerOutEvent(outEvent)

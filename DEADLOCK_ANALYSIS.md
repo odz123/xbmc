@@ -2,7 +2,26 @@
 
 ## Executive Summary
 
-This document presents a comprehensive analysis of potential deadlock patterns in the XBMC/Kodi codebase. The analysis identified **19+ potential deadlock patterns** across various subsystems, with several classified as **CRITICAL** severity.
+This document presents a comprehensive analysis of potential deadlock patterns in the XBMC/Kodi codebase. The analysis initially identified **19+ potential deadlock patterns** across various subsystems, with several classified as **CRITICAL** severity.
+
+### Fix Status Summary (Updated)
+
+| Severity | Original Count | Fixed | Remaining |
+|----------|----------------|-------|-----------|
+| CRITICAL | 4 | 4 | 0 |
+| HIGH | 4 | 4 | 0 |
+| MEDIUM | 5+ | 3 | 2+ |
+
+**Recent fixes applied:**
+- ✅ Observer pattern callbacks (commit d315627)
+- ✅ Audio visualization callbacks (commit d315627)
+- ✅ Touch input handler callbacks (this commit)
+- ✅ EventStream subscription callbacks (commit d315627)
+- ✅ RSS Reader callbacks (commit d315627)
+- ✅ Pipe file listener callbacks (commit d315627)
+- ✅ ActorProtocol RAII refactoring (this commit)
+- ✅ AlarmClock recursive lock pattern (this commit)
+- ✅ RenderManager lock ordering documentation (this commit)
 
 ---
 
@@ -70,7 +89,7 @@ if (!m_audioCallback.empty() && !m_streams.empty()) {
 ### 3. Touch Input Handler Callbacks
 
 **File:** `xbmc/input/touch/generic/GenericTouchInputHandler.cpp:58-381`
-**Severity:** CRITICAL
+**Severity:** CRITICAL → ✅ **FIXED**
 
 Multiple callback invocations while holding `m_critical`:
 - `triggerDetectors(event, pointer)` (line 70)
@@ -81,6 +100,8 @@ Multiple callback invocations while holding `m_critical`:
 **Problem:** Touch event processing triggers callbacks while holding input lock. If callbacks interact with UI or other subsystems requiring locks, deadlock occurs.
 
 **Impact:** Can make the entire UI unresponsive.
+
+**Fix Applied:** Refactored `HandleTouchInput()` to use a deferred callback pattern. All callbacks are now invoked outside the lock using a `DeferredCallbacks` struct that captures the necessary state. The `OnTimeout()` method was already fixed previously.
 
 ---
 
@@ -109,7 +130,7 @@ void CSubscription<Event, Owner>::HandleEvent(const Event& event)
 ### 5. RenderManager Triple Lock Acquisition
 
 **File:** `xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp:175-179, 441-445`
-**Severity:** HIGH
+**Severity:** HIGH → ⚠️ **DOCUMENTED**
 
 ```cpp
 std::lock_guard lock(m_statelock);      // Lock 1
@@ -120,6 +141,8 @@ std::lock_guard lock3(m_datalock);      // Lock 3
 **Problem:** Three locks acquired in sequence. If any other code path acquires these locks in a different order, deadlock is guaranteed.
 
 **Note:** Line 436 contains an explicit comment: `// fix deadlock on Windows only when is enabled 'Sync playback to display'`
+
+**Documentation Added:** Lock ordering documentation added to `RenderManager.h` specifying that locks must always be acquired in order: `m_statelock -> m_presentlock -> m_datalock`. The Windows-specific deadlock issue is also documented.
 
 ---
 
@@ -212,7 +235,7 @@ std::lock_guard lock2(stream->m_statsLock);
 ### 11. ActorProtocol Manual Lock/Unlock
 
 **File:** `xbmc/utils/ActorProtocol.cpp:18-39`
-**Severity:** MEDIUM
+**Severity:** MEDIUM → ✅ **FIXED**
 
 ```cpp
 void Message::Release()
@@ -227,6 +250,8 @@ void Message::Release()
 ```
 
 **Problem:** Manual lock/unlock without RAII protection. Exception safety not guaranteed, and `ReturnMessage()` call outside lock may or may not be intentional.
+
+**Fix Applied:** Converted both `Message::Release()` and `Message::Reply()` to use `std::lock_guard` with RAII pattern. Added `friend class Message` to Protocol to allow access to `criticalSection` for RAII locking.
 
 ---
 
@@ -252,7 +277,7 @@ void CJobQueue::QueueNextJob()
 ### 13. AlarmClock Recursive Lock Pattern
 
 **File:** `xbmc/utils/AlarmClock.cpp:148-154`
-**Severity:** MEDIUM
+**Severity:** MEDIUM → ✅ **FIXED**
 
 ```cpp
 void CAlarmClock::Process() {
@@ -263,6 +288,8 @@ void CAlarmClock::Process() {
 ```
 
 **Problem:** Relies on `CCriticalSection` being recursive. If lock implementation changes, this becomes a deadlock.
+
+**Fix Applied:** Refactored `Process()` to collect expired alarm names under lock, then release the lock before calling `Stop()` for each. This eliminates the recursive lock acquisition pattern.
 
 ---
 

@@ -174,6 +174,13 @@ protected:
   CBaseRenderer* m_pRenderer = nullptr;
   OVERLAY::CRenderer m_overlays;
   CDebugRenderer m_debugRenderer;
+
+  // Lock ordering to prevent deadlocks:
+  // When acquiring multiple locks, always acquire in this order:
+  //   m_statelock -> m_presentlock -> m_datalock
+  // Never acquire locks in reverse order or skip locks in the sequence.
+  // Note: There is a known Windows-specific deadlock when 'Sync playback to display'
+  // is enabled, requiring special handling via CSingleExit on GfxContext.
   mutable CCriticalSection m_statelock;
   CCriticalSection m_resolutionlock;
   CCriticalSection m_presentlock;

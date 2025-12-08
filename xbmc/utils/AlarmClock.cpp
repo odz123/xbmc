@@ -143,21 +143,28 @@ void CAlarmClock::Process()
 {
   while( !m_bStop)
   {
-    std::string strLast;
+    // Collect expired alarms under lock, then call Stop() outside lock
+    // to avoid recursive lock acquisition (Stop() also acquires m_events)
+    std::vector<std::string> expiredAlarms;
     {
       std::lock_guard lock(m_events);
-      
-      for (auto iter=m_event.begin();iter != m_event.end(); ++iter)
-        if (iter->second.watch.IsRunning() &&
-            iter->second.watch.GetElapsedSeconds() >= static_cast<float>(iter->second.m_fSecs))
+
+      for (const auto& event : m_event)
+      {
+        if (event.second.watch.IsRunning() &&
+            event.second.watch.GetElapsedSeconds() >= static_cast<float>(event.second.m_fSecs))
         {
-          Stop(iter->first);
-          if ((iter = m_event.find(strLast)) == m_event.end())
-            break;
+          expiredAlarms.push_back(event.first);
         }
-        else
-          strLast = iter->first;
+      }
     }
+
+    // Call Stop() outside of lock to prevent deadlocks
+    for (const auto& alarmName : expiredAlarms)
+    {
+      Stop(alarmName);
+    }
+
     CThread::Sleep(100ms);
   }
 }

@@ -55,231 +55,468 @@ bool CGenericTouchInputHandler::HandleTouchInput(TouchInput event,
   if (time < 0 || pointer < 0 || pointer >= MAX_POINTERS)
     return false;
 
-  std::lock_guard lock(m_critical);
-
-  bool result = true;
-
-  m_pointers[pointer].current.x = x;
-  m_pointers[pointer].current.y = y;
-  m_pointers[pointer].current.time = time;
-
-  switch (event)
+  // Struct to capture deferred callback actions to be executed outside the lock
+  struct DeferredCallbacks
   {
-    case TouchInputAbort:
+    enum class Type
     {
-      triggerDetectors(event, pointer);
+      None,
+      Abort,
+      SingleTouchStart,
+      MultiTouchDown,
+      SingleTouchUp,
+      SingleTouchUpWithTap,
+      PanEnd,
+      MultiTouchUp,
+      MultiTouchDoneEnd,
+      MultiTouchDoneEndWithTap,
+      MoveGestureStart,
+      SingleTouchMove,
+      PanMove,
+      MultiTouchMove
+    };
+    Type type = Type::None;
+    float x = 0, y = 0;
+    float x2 = 0, y2 = 0; // for tap with two pointers
+    float offsetX = 0, offsetY = 0;
+    float velocityX = 0, velocityY = 0;
+    int32_t pointer = 0;
+    bool stopTimerWait = false;
+    bool startTimer = false;
+    bool stopTimer = false;
+    bool triggerDetectorsFlag = false;
+    TouchInput detectorEvent = TouchInputAbort;
+    int32_t detectorPointer = 0;
+    Pointer detectorPointerData;
+    std::set<std::unique_ptr<IGenericTouchGestureDetector>>* detectors = nullptr;
+  };
 
-      setGestureState(TouchGestureUnknown);
-      for (auto& pointer : m_pointers)
-        pointer.reset();
+  DeferredCallbacks deferred;
+  bool result = true;
+  bool earlyReturn = false;
+  bool returnFalse = false;
 
-      OnTouchAbort();
-      break;
-    }
+  {
+    std::lock_guard lock(m_critical);
 
-    case TouchInputDown:
+    m_pointers[pointer].current.x = x;
+    m_pointers[pointer].current.y = y;
+    m_pointers[pointer].current.time = time;
+
+    switch (event)
     {
-      m_pointers[pointer].down.x = x;
-      m_pointers[pointer].down.y = y;
-      m_pointers[pointer].down.time = time;
-      m_pointers[pointer].moving = false;
-      m_pointers[pointer].size = AdjustPointerSize(size);
-
-      // If this is the down event of the primary pointer
-      // we start by assuming that it's a single touch
-      if (pointer == 0)
+      case TouchInputAbort:
       {
-        // create new gesture detectors
-        m_detectors.emplace(new CGenericTouchSwipeDetector(this, m_dpi));
-        m_detectors.emplace(new CGenericTouchPinchDetector(this, m_dpi));
-        m_detectors.emplace(new CGenericTouchRotateDetector(this, m_dpi));
-        triggerDetectors(event, pointer);
-
-        setGestureState(TouchGestureSingleTouch);
-        result = OnSingleTouchStart(x, y);
-
-        m_holdTimer->Start(TOUCH_HOLD_TIMEOUT);
-      }
-      // Otherwise it's the down event of another pointer
-      else
-      {
-        triggerDetectors(event, pointer);
-
-        // If we so far assumed single touch or still have the primary
-        // pointer of a previous multi touch pressed down, we can update to multi touch
-        if (m_gestureState == TouchGestureSingleTouch ||
-            m_gestureState == TouchGestureSingleTouchHold ||
-            m_gestureState == TouchGestureMultiTouchDone)
-        {
-          result = OnMultiTouchDown(x, y, pointer);
-          m_holdTimer->Stop(true);
-
-          if (m_gestureState == TouchGestureSingleTouch ||
-              m_gestureState == TouchGestureSingleTouchHold)
-            m_holdTimer->Start(TOUCH_HOLD_TIMEOUT);
-
-          setGestureState(TouchGestureMultiTouchStart);
-        }
-        // Otherwise we should ignore this pointer
-        else
-        {
-          m_pointers[pointer].reset();
-          break;
-        }
-      }
-      return result;
-    }
-
-    case TouchInputUp:
-    {
-      // unexpected event => abort
-      if (!m_pointers[pointer].valid() || m_gestureState == TouchGestureUnknown)
-        break;
-
-      triggerDetectors(event, pointer);
-
-      m_holdTimer->Stop(false);
-
-      // Just a single tap with a pointer
-      if (m_gestureState == TouchGestureSingleTouch ||
-          m_gestureState == TouchGestureSingleTouchHold)
-      {
-        result = OnSingleTouchEnd(x, y);
-
-        if (m_gestureState == TouchGestureSingleTouch)
-          OnTap(x, y, 1);
-      }
-      // A pan gesture started with a single pointer (ignoring any other pointers)
-      else if (m_gestureState == TouchGesturePan)
-      {
-        float velocityX = 0.0f; // number of pixels per second
-        float velocityY = 0.0f; // number of pixels per second
-        m_pointers[pointer].velocity(velocityX, velocityY, false);
-
-        result = OnTouchGestureEnd(x, y, x - m_pointers[pointer].down.x,
-                                   y - m_pointers[pointer].down.y, velocityX, velocityY);
-      }
-      // we are in multi-touch
-      else
-        result = OnMultiTouchUp(x, y, pointer);
-
-      // If we were in multi touch mode and lifted one pointer
-      // we can go into the TouchGestureMultiTouchDone state which will allow
-      // the user to go back into multi touch mode without lifting the primary pointer
-      if (m_gestureState == TouchGestureMultiTouchStart ||
-          m_gestureState == TouchGestureMultiTouchHold || m_gestureState == TouchGestureMultiTouch)
-      {
-        setGestureState(TouchGestureMultiTouchDone);
-
-        // after lifting the primary pointer, the secondary pointer will
-        // become the primary pointer in the next event
-        if (pointer == 0)
-        {
-          m_pointers[0] = m_pointers[1];
-          pointer = 1;
-        }
-      }
-      // Otherwise abort
-      else
-      {
-        if (m_gestureState == TouchGestureMultiTouchDone)
-        {
-          float velocityX = 0.0f; // number of pixels per second
-          float velocityY = 0.0f; // number of pixels per second
-          m_pointers[pointer].velocity(velocityX, velocityY, false);
-
-          result = OnTouchGestureEnd(x, y, x - m_pointers[pointer].down.x,
-                                     y - m_pointers[pointer].down.y, velocityX, velocityY);
-
-          // if neither of the two pointers moved we have a single tap with multiple pointers
-          if (m_gestureStateOld != TouchGestureMultiTouchHold &&
-              m_gestureStateOld != TouchGestureMultiTouch)
-            OnTap(std::abs((m_pointers[0].down.x + m_pointers[1].down.x) / 2),
-                  std::abs((m_pointers[0].down.y + m_pointers[1].down.y) / 2), 2);
-        }
+        // Prepare detector triggering data
+        deferred.triggerDetectorsFlag = true;
+        deferred.detectorEvent = event;
+        deferred.detectorPointer = pointer;
+        deferred.detectorPointerData = m_pointers[pointer];
+        deferred.detectors = &m_detectors;
 
         setGestureState(TouchGestureUnknown);
-      }
-      m_pointers[pointer].reset();
+        for (auto& p : m_pointers)
+          p.reset();
 
-      return result;
-    }
-
-    case TouchInputMove:
-    {
-      // unexpected event => abort
-      if (!m_pointers[pointer].valid() || m_gestureState == TouchGestureUnknown ||
-          m_gestureState == TouchGestureMultiTouchDone)
+        deferred.type = DeferredCallbacks::Type::Abort;
         break;
+      }
 
-      bool moving = std::any_of(m_pointers.cbegin(), m_pointers.cend(),
-                                [](Pointer const& p) { return p.valid() && p.moving; });
-
-      if (moving)
+      case TouchInputDown:
       {
-        m_holdTimer->Stop();
+        m_pointers[pointer].down.x = x;
+        m_pointers[pointer].down.y = y;
+        m_pointers[pointer].down.time = time;
+        m_pointers[pointer].moving = false;
+        m_pointers[pointer].size = AdjustPointerSize(size);
 
-        // the touch is moving so we start a gesture
+        // If this is the down event of the primary pointer
+        // we start by assuming that it's a single touch
+        if (pointer == 0)
+        {
+          // create new gesture detectors
+          m_detectors.emplace(new CGenericTouchSwipeDetector(this, m_dpi));
+          m_detectors.emplace(new CGenericTouchPinchDetector(this, m_dpi));
+          m_detectors.emplace(new CGenericTouchRotateDetector(this, m_dpi));
+
+          deferred.triggerDetectorsFlag = true;
+          deferred.detectorEvent = event;
+          deferred.detectorPointer = pointer;
+          deferred.detectorPointerData = m_pointers[pointer];
+          deferred.detectors = &m_detectors;
+
+          setGestureState(TouchGestureSingleTouch);
+          deferred.type = DeferredCallbacks::Type::SingleTouchStart;
+          deferred.x = x;
+          deferred.y = y;
+          deferred.startTimer = true;
+        }
+        // Otherwise it's the down event of another pointer
+        else
+        {
+          deferred.triggerDetectorsFlag = true;
+          deferred.detectorEvent = event;
+          deferred.detectorPointer = pointer;
+          deferred.detectorPointerData = m_pointers[pointer];
+          deferred.detectors = &m_detectors;
+
+          // If we so far assumed single touch or still have the primary
+          // pointer of a previous multi touch pressed down, we can update to multi touch
+          if (m_gestureState == TouchGestureSingleTouch ||
+              m_gestureState == TouchGestureSingleTouchHold ||
+              m_gestureState == TouchGestureMultiTouchDone)
+          {
+            deferred.type = DeferredCallbacks::Type::MultiTouchDown;
+            deferred.x = x;
+            deferred.y = y;
+            deferred.pointer = pointer;
+            deferred.stopTimerWait = true;
+
+            if (m_gestureState == TouchGestureSingleTouch ||
+                m_gestureState == TouchGestureSingleTouchHold)
+              deferred.startTimer = true;
+
+            setGestureState(TouchGestureMultiTouchStart);
+          }
+          // Otherwise we should ignore this pointer
+          else
+          {
+            m_pointers[pointer].reset();
+            returnFalse = true;
+            break;
+          }
+        }
+        earlyReturn = true;
+        break;
+      }
+
+      case TouchInputUp:
+      {
+        // unexpected event => abort
+        if (!m_pointers[pointer].valid() || m_gestureState == TouchGestureUnknown)
+        {
+          returnFalse = true;
+          break;
+        }
+
+        deferred.triggerDetectorsFlag = true;
+        deferred.detectorEvent = event;
+        deferred.detectorPointer = pointer;
+        deferred.detectorPointerData = m_pointers[pointer];
+        deferred.detectors = &m_detectors;
+
+        deferred.stopTimer = true;
+
+        // Just a single tap with a pointer
         if (m_gestureState == TouchGestureSingleTouch ||
-            m_gestureState == TouchGestureMultiTouchStart)
-          result = OnTouchGestureStart(m_pointers[pointer].down.x, m_pointers[pointer].down.y);
-      }
+            m_gestureState == TouchGestureSingleTouchHold)
+        {
+          if (m_gestureState == TouchGestureSingleTouch)
+          {
+            deferred.type = DeferredCallbacks::Type::SingleTouchUpWithTap;
+          }
+          else
+          {
+            deferred.type = DeferredCallbacks::Type::SingleTouchUp;
+          }
+          deferred.x = x;
+          deferred.y = y;
+        }
+        // A pan gesture started with a single pointer (ignoring any other pointers)
+        else if (m_gestureState == TouchGesturePan)
+        {
+          float velocityX = 0.0f;
+          float velocityY = 0.0f;
+          m_pointers[pointer].velocity(velocityX, velocityY, false);
 
-      triggerDetectors(event, pointer);
+          deferred.type = DeferredCallbacks::Type::PanEnd;
+          deferred.x = x;
+          deferred.y = y;
+          deferred.offsetX = x - m_pointers[pointer].down.x;
+          deferred.offsetY = y - m_pointers[pointer].down.y;
+          deferred.velocityX = velocityX;
+          deferred.velocityY = velocityY;
+        }
+        // we are in multi-touch
+        else
+        {
+          deferred.type = DeferredCallbacks::Type::MultiTouchUp;
+          deferred.x = x;
+          deferred.y = y;
+          deferred.pointer = pointer;
+        }
 
-      // Check if the touch has moved far enough to count as movement
-      if ((m_gestureState == TouchGestureSingleTouch ||
-           m_gestureState == TouchGestureMultiTouchStart) &&
-          !m_pointers[pointer].moving)
+        // If we were in multi touch mode and lifted one pointer
+        // we can go into the TouchGestureMultiTouchDone state which will allow
+        // the user to go back into multi touch mode without lifting the primary pointer
+        if (m_gestureState == TouchGestureMultiTouchStart ||
+            m_gestureState == TouchGestureMultiTouchHold || m_gestureState == TouchGestureMultiTouch)
+        {
+          setGestureState(TouchGestureMultiTouchDone);
+
+          // after lifting the primary pointer, the secondary pointer will
+          // become the primary pointer in the next event
+          if (pointer == 0)
+          {
+            m_pointers[0] = m_pointers[1];
+            pointer = 1;
+          }
+        }
+        // Otherwise abort
+        else
+        {
+          if (m_gestureState == TouchGestureMultiTouchDone)
+          {
+            float velocityX = 0.0f;
+            float velocityY = 0.0f;
+            m_pointers[pointer].velocity(velocityX, velocityY, false);
+
+            // if neither of the two pointers moved we have a single tap with multiple pointers
+            if (m_gestureStateOld != TouchGestureMultiTouchHold &&
+                m_gestureStateOld != TouchGestureMultiTouch)
+            {
+              deferred.type = DeferredCallbacks::Type::MultiTouchDoneEndWithTap;
+              deferred.x2 = std::abs((m_pointers[0].down.x + m_pointers[1].down.x) / 2);
+              deferred.y2 = std::abs((m_pointers[0].down.y + m_pointers[1].down.y) / 2);
+            }
+            else
+            {
+              deferred.type = DeferredCallbacks::Type::MultiTouchDoneEnd;
+            }
+            deferred.x = x;
+            deferred.y = y;
+            deferred.offsetX = x - m_pointers[pointer].down.x;
+            deferred.offsetY = y - m_pointers[pointer].down.y;
+            deferred.velocityX = velocityX;
+            deferred.velocityY = velocityY;
+          }
+
+          setGestureState(TouchGestureUnknown);
+        }
+        m_pointers[pointer].reset();
+
+        earlyReturn = true;
         break;
-
-      if (m_gestureState == TouchGestureSingleTouch)
-      {
-        m_pointers[pointer].last.copy(m_pointers[pointer].down);
-        setGestureState(TouchGesturePan);
-      }
-      else if (m_gestureState == TouchGestureMultiTouchStart)
-      {
-        setGestureState(TouchGestureMultiTouch);
-
-        // set the starting point
-        saveLastTouch();
       }
 
-      float offsetX = x - m_pointers[pointer].last.x;
-      float offsetY = y - m_pointers[pointer].last.y;
-      float velocityX = 0.0f; // number of pixels per second
-      float velocityY = 0.0f; // number of pixels per second
-      m_pointers[pointer].velocity(velocityX, velocityY);
-
-      if (m_pointers[pointer].moving &&
-          (m_gestureState == TouchGestureSingleTouch ||
-           m_gestureState == TouchGestureSingleTouchHold || m_gestureState == TouchGesturePan))
-        result = OnSingleTouchMove(x, y, offsetX, offsetY, velocityX, velocityY);
-
-      // Let's see if we have a pan gesture (i.e. the primary and only pointer moving)
-      if (m_gestureState == TouchGesturePan)
+      case TouchInputMove:
       {
-        result = OnTouchGesturePan(x, y, offsetX, offsetY, velocityX, velocityY);
+        // unexpected event => abort
+        if (!m_pointers[pointer].valid() || m_gestureState == TouchGestureUnknown ||
+            m_gestureState == TouchGestureMultiTouchDone)
+        {
+          returnFalse = true;
+          break;
+        }
 
-        m_pointers[pointer].last.x = x;
-        m_pointers[pointer].last.y = y;
-      }
-      else if (m_gestureState == TouchGestureMultiTouch)
-      {
+        bool moving = std::any_of(m_pointers.cbegin(), m_pointers.cend(),
+                                  [](Pointer const& p) { return p.valid() && p.moving; });
+
         if (moving)
-          result = OnMultiTouchMove(x, y, offsetX, offsetY, velocityX, velocityY, pointer);
-      }
-      else
+        {
+          deferred.stopTimer = true;
+
+          // the touch is moving so we start a gesture
+          if (m_gestureState == TouchGestureSingleTouch ||
+              m_gestureState == TouchGestureMultiTouchStart)
+          {
+            deferred.type = DeferredCallbacks::Type::MoveGestureStart;
+            deferred.x = m_pointers[pointer].down.x;
+            deferred.y = m_pointers[pointer].down.y;
+          }
+        }
+
+        deferred.triggerDetectorsFlag = true;
+        deferred.detectorEvent = event;
+        deferred.detectorPointer = pointer;
+        deferred.detectorPointerData = m_pointers[pointer];
+        deferred.detectors = &m_detectors;
+
+        // Check if the touch has moved far enough to count as movement
+        if ((m_gestureState == TouchGestureSingleTouch ||
+             m_gestureState == TouchGestureMultiTouchStart) &&
+            !m_pointers[pointer].moving)
+        {
+          returnFalse = true;
+          break;
+        }
+
+        if (m_gestureState == TouchGestureSingleTouch)
+        {
+          m_pointers[pointer].last.copy(m_pointers[pointer].down);
+          setGestureState(TouchGesturePan);
+        }
+        else if (m_gestureState == TouchGestureMultiTouchStart)
+        {
+          setGestureState(TouchGestureMultiTouch);
+
+          // set the starting point
+          saveLastTouch();
+        }
+
+        float offsetX = x - m_pointers[pointer].last.x;
+        float offsetY = y - m_pointers[pointer].last.y;
+        float velocityX = 0.0f;
+        float velocityY = 0.0f;
+        m_pointers[pointer].velocity(velocityX, velocityY);
+
+        if (m_pointers[pointer].moving &&
+            (m_gestureState == TouchGestureSingleTouch ||
+             m_gestureState == TouchGestureSingleTouchHold || m_gestureState == TouchGesturePan))
+        {
+          if (deferred.type == DeferredCallbacks::Type::None ||
+              deferred.type == DeferredCallbacks::Type::MoveGestureStart)
+          {
+            // Combine with gesture start if present
+            if (deferred.type == DeferredCallbacks::Type::MoveGestureStart)
+            {
+              // Will be handled in callback execution
+            }
+            deferred.type = DeferredCallbacks::Type::SingleTouchMove;
+            deferred.x = x;
+            deferred.y = y;
+            deferred.offsetX = offsetX;
+            deferred.offsetY = offsetY;
+            deferred.velocityX = velocityX;
+            deferred.velocityY = velocityY;
+          }
+        }
+
+        // Let's see if we have a pan gesture (i.e. the primary and only pointer moving)
+        if (m_gestureState == TouchGesturePan)
+        {
+          deferred.type = DeferredCallbacks::Type::PanMove;
+          deferred.x = x;
+          deferred.y = y;
+          deferred.offsetX = offsetX;
+          deferred.offsetY = offsetY;
+          deferred.velocityX = velocityX;
+          deferred.velocityY = velocityY;
+
+          m_pointers[pointer].last.x = x;
+          m_pointers[pointer].last.y = y;
+        }
+        else if (m_gestureState == TouchGestureMultiTouch)
+        {
+          if (moving)
+          {
+            deferred.type = DeferredCallbacks::Type::MultiTouchMove;
+            deferred.x = x;
+            deferred.y = y;
+            deferred.offsetX = offsetX;
+            deferred.offsetY = offsetY;
+            deferred.velocityX = velocityX;
+            deferred.velocityY = velocityY;
+            deferred.pointer = pointer;
+          }
+        }
+        else
+        {
+          returnFalse = true;
+          break;
+        }
+
+        earlyReturn = true;
         break;
+      }
 
-      return result;
+      default:
+        CLog::Log(LOGDEBUG, "CGenericTouchInputHandler: unknown TouchInput");
+        returnFalse = true;
+        break;
     }
+  } // lock released here
 
+  // Execute deferred callbacks outside of lock to prevent deadlocks
+  // Handle timer operations first
+  if (deferred.stopTimerWait)
+    m_holdTimer->Stop(true);
+  if (deferred.stopTimer)
+    m_holdTimer->Stop(false);
+  if (deferred.startTimer)
+    m_holdTimer->Start(TOUCH_HOLD_TIMEOUT);
+
+  // Trigger detectors - these are internal and don't call external callbacks
+  if (deferred.triggerDetectorsFlag)
+  {
+    triggerDetectors(deferred.detectorEvent, deferred.detectorPointer);
+  }
+
+  // Execute the main callback outside of lock
+  switch (deferred.type)
+  {
+    case DeferredCallbacks::Type::Abort:
+      OnTouchAbort();
+      break;
+
+    case DeferredCallbacks::Type::SingleTouchStart:
+      result = OnSingleTouchStart(deferred.x, deferred.y);
+      break;
+
+    case DeferredCallbacks::Type::MultiTouchDown:
+      result = OnMultiTouchDown(deferred.x, deferred.y, deferred.pointer);
+      break;
+
+    case DeferredCallbacks::Type::SingleTouchUp:
+      result = OnSingleTouchEnd(deferred.x, deferred.y);
+      break;
+
+    case DeferredCallbacks::Type::SingleTouchUpWithTap:
+      result = OnSingleTouchEnd(deferred.x, deferred.y);
+      OnTap(deferred.x, deferred.y, 1);
+      break;
+
+    case DeferredCallbacks::Type::PanEnd:
+      result = OnTouchGestureEnd(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                 deferred.velocityX, deferred.velocityY);
+      break;
+
+    case DeferredCallbacks::Type::MultiTouchUp:
+      result = OnMultiTouchUp(deferred.x, deferred.y, deferred.pointer);
+      break;
+
+    case DeferredCallbacks::Type::MultiTouchDoneEnd:
+      result = OnTouchGestureEnd(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                 deferred.velocityX, deferred.velocityY);
+      break;
+
+    case DeferredCallbacks::Type::MultiTouchDoneEndWithTap:
+      result = OnTouchGestureEnd(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                 deferred.velocityX, deferred.velocityY);
+      OnTap(deferred.x2, deferred.y2, 2);
+      break;
+
+    case DeferredCallbacks::Type::MoveGestureStart:
+      result = OnTouchGestureStart(deferred.x, deferred.y);
+      break;
+
+    case DeferredCallbacks::Type::SingleTouchMove:
+      result = OnSingleTouchMove(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                 deferred.velocityX, deferred.velocityY);
+      break;
+
+    case DeferredCallbacks::Type::PanMove:
+      result = OnSingleTouchMove(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                 deferred.velocityX, deferred.velocityY);
+      result = OnTouchGesturePan(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                 deferred.velocityX, deferred.velocityY);
+      break;
+
+    case DeferredCallbacks::Type::MultiTouchMove:
+      result = OnMultiTouchMove(deferred.x, deferred.y, deferred.offsetX, deferred.offsetY,
+                                deferred.velocityX, deferred.velocityY, deferred.pointer);
+      break;
+
+    case DeferredCallbacks::Type::None:
     default:
-      CLog::Log(LOGDEBUG, "CGenericTouchInputHandler: unknown TouchInput");
       break;
   }
+
+  if (returnFalse)
+    return false;
+
+  if (earlyReturn)
+    return result;
 
   return false;
 }
