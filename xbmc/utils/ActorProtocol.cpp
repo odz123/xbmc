@@ -18,10 +18,11 @@ using namespace Actor;
 void Message::Release()
 {
   bool skip;
-  origin.Lock();
-  skip = isSync ? !isSyncFini : false;
-  isSyncFini = true;
-  origin.Unlock();
+  {
+    std::lock_guard lock(origin.criticalSection);
+    skip = isSync ? !isSyncFini : false;
+    isSyncFini = true;
+  }
 
   if (skip)
     return;
@@ -48,25 +49,25 @@ bool Message::Reply(int sig, void *data /* = NULL*/, size_t size /* = 0 */)
       return origin.SendOutMessage(sig, data, size);
   }
 
-  origin.Lock();
-
-  if (!isSyncTimeout)
   {
-    Message *msg = origin.GetMessage();
-    msg->signal = sig;
-    msg->isOut = !isOut;
-    replyMessage = msg;
-    if (data)
+    std::lock_guard lock(origin.criticalSection);
+
+    if (!isSyncTimeout)
     {
-      if (size > sizeof(msg->buffer))
-        msg->data = new uint8_t[size];
-      else
-        msg->data = msg->buffer;
-      memcpy(msg->data, data, size);
+      Message *msg = origin.GetMessage();
+      msg->signal = sig;
+      msg->isOut = !isOut;
+      replyMessage = msg;
+      if (data)
+      {
+        if (size > sizeof(msg->buffer))
+          msg->data = new uint8_t[size];
+        else
+          msg->data = msg->buffer;
+        memcpy(msg->data, data, size);
+      }
     }
   }
-
-  origin.Unlock();
 
   if (event)
     event->Set();
