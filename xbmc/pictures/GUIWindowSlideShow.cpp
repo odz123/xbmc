@@ -732,15 +732,16 @@ void CGUIWindowSlideShow::RenderEx()
 }
 
 int CGUIWindowSlideShow::GetNextSlide() const {
-  if (m_slides.size() <= 1)
+  const int slideCount = static_cast<int>(m_slides.size());
+  if (slideCount <= 1)
     return m_iCurrentSlide;
   int step = m_iDirection >= 0 ? 1 : -1;
-  int nextSlide = (m_iCurrentSlide + step + m_slides.size()) % m_slides.size();
+  int nextSlide = (m_iCurrentSlide + step + slideCount) % slideCount;
   while (nextSlide != m_iCurrentSlide)
   {
     if (!m_slides.at(nextSlide)->HasProperty("unplayable"))
       return nextSlide;
-    nextSlide = (nextSlide + step + m_slides.size()) % m_slides.size();
+    nextSlide = (nextSlide + step + slideCount) % slideCount;
   }
   return m_iCurrentSlide;
 }
@@ -879,7 +880,7 @@ bool CGUIWindowSlideShow::OnAction(const CAction &action)
 
   case ACTION_PAUSE:
   case ACTION_PLAYER_PLAY:
-    if (m_slides.size() == 0)
+    if (m_slides.empty())
       break;
     if (m_slides.at(m_iCurrentSlide)->IsVideo())
     {

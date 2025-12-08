@@ -812,21 +812,22 @@ std::vector<CGUIFontTTF::Glyph> CGUIFontTTF::GetHarfBuzzShapedGlyphs(const vecTe
 
   lastScript = scripts[0];
   int lastRunStart = 0;
+  const size_t scriptsSize = scripts.size();
 
-  for (unsigned int i = 0; i <= scripts.size(); ++i)
+  for (size_t i = 0; i <= scriptsSize; ++i)
   {
-    if (i == scripts.size() || scripts[i] != lastScript)
+    if (i == scriptsSize || scripts[i] != lastScript)
     {
       RunInfo run{};
       run.m_startOffset = lastRunStart;
-      run.m_endOffset = i;
+      run.m_endOffset = static_cast<int>(i);
       run.m_script = lastScript;
       runs.emplace_back(run);
 
-      if (i < scripts.size())
+      if (i < scriptsSize)
       {
         lastScript = scripts[i];
-        lastRunStart = i;
+        lastRunStart = static_cast<int>(i);
       }
       else
       {

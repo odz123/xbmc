@@ -225,7 +225,7 @@ void LogGraphicsInfo()
     CLog::Log(LOGINFO, "GL_GPU_MEMORY_INFO_DEDICATED_VIDMEM_NVX = {}", mem);
   }
 
-  std::string extensions = "";
+  std::string extensions;
 #if defined(HAS_GL)
   unsigned int renderVersionMajor, renderVersionMinor;
   CServiceBroker::GetRenderSystem()->GetRenderVersion(renderVersionMajor, renderVersionMinor);

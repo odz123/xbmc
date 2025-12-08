@@ -21,8 +21,9 @@ CHTMLUtil::~CHTMLUtil(void) = default;
 void CHTMLUtil::RemoveTags(std::string& strHTML)
 {
   int iNested = 0;
-  std::string strReturn = "";
-  for (int i = 0; i < (int) strHTML.size(); ++i)
+  std::string strReturn;
+  strReturn.reserve(strHTML.size());
+  for (size_t i = 0; i < strHTML.size(); ++i)
   {
     if (strHTML[i] == '<') iNested++;
     else if (strHTML[i] == '>') iNested--;

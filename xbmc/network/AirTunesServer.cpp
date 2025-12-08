@@ -471,7 +471,7 @@ void CAirTunesServer::SetupRemoteControl()
 
   // check for the service matching m_dacp_id
   std::vector<CZeroconfBrowser::ZeroconfService> services = CZeroconfBrowser::GetInstance()->GetFoundServices();
-  for (auto service : services )
+  for (const auto& service : services)
   {
     if (StringUtils::EqualsNoCase(service.GetType(), std::string(ZEROCONF_DACP_SERVICE) + "."))
     {

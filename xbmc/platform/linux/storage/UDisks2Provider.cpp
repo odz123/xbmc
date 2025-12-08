@@ -361,10 +361,11 @@ bool CUDisks2Provider::DriveRemoved(const std::string& object)
 {
   CLog::Log(LOGDEBUG, LOGDBUS, "UDisks2: Drive removed ({})", object);
 
-  if (m_drives.count(object) > 0)
+  auto driveIt = m_drives.find(object);
+  if (driveIt != m_drives.end())
   {
-    delete m_drives[object];
-    m_drives.erase(object);
+    delete driveIt->second;
+    m_drives.erase(driveIt);
   }
 
   for (auto &elt: m_blocks)
@@ -385,8 +386,9 @@ void CUDisks2Provider::BlockAdded(Block *block, bool isNew)
   {
     CLog::Log(LOGDEBUG, LOGDBUS, "UDisks2: Block added - {}", block->ToString());
 
-    if (m_drives.count(block->m_driveobject) > 0)
-      block->m_drive = m_drives[block->m_driveobject];
+    auto driveIt = m_drives.find(block->m_driveobject);
+    if (driveIt != m_drives.end())
+      block->m_drive = driveIt->second;
 
     if (m_blocks[block->m_object])
     {
@@ -398,9 +400,10 @@ void CUDisks2Provider::BlockAdded(Block *block, bool isNew)
   }
 
 
-  if (m_filesystems.count(block->m_object) > 0)
+  auto fsIt = m_filesystems.find(block->m_object);
+  if (fsIt != m_filesystems.end())
   {
-    auto fs = m_filesystems[block->m_object];
+    auto fs = fsIt->second;
     fs->m_block = block;
     FilesystemAdded(fs, false);
   }
@@ -410,15 +413,17 @@ bool CUDisks2Provider::BlockRemoved(const std::string& object)
 {
   CLog::Log(LOGDEBUG, LOGDBUS, "UDisks2: Block removed ({})", object);
 
-  if (m_blocks.count(object) > 0)
+  auto blockIt = m_blocks.find(object);
+  if (blockIt != m_blocks.end())
   {
-    delete m_blocks[object];
-    m_blocks.erase(object);
+    delete blockIt->second;
+    m_blocks.erase(blockIt);
   }
 
-  if (m_filesystems.count(object) > 0)
+  auto fsIt = m_filesystems.find(object);
+  if (fsIt != m_filesystems.end())
   {
-    m_filesystems[object]->m_block = nullptr;
+    fsIt->second->m_block = nullptr;
   }
 
   return false;
@@ -430,8 +435,9 @@ void CUDisks2Provider::FilesystemAdded(Filesystem *fs, bool isNew)
   {
     CLog::Log(LOGDEBUG, LOGDBUS, "UDisks2: Filesystem added - {}", fs->ToString());
 
-    if (m_blocks.count(fs->GetObject()) > 0)
-      fs->m_block = m_blocks[fs->GetObject()];
+    auto blockIt = m_blocks.find(fs->GetObject());
+    if (blockIt != m_blocks.end())
+      fs->m_block = blockIt->second;
 
     if (m_filesystems[fs->GetObject()])
     {
