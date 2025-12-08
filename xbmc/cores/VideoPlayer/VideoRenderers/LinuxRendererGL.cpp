@@ -662,11 +662,16 @@ void CLinuxRendererGL::UpdateVideoFilter()
         Supports(RENDERFEATURE_NONLINSTRETCH))
     {
       m_nonLinStretch = true;
+      // Cache the pow() calculation to avoid expensive math every frame
+      m_cachedNonLinStretch = pow(
+          m_pixelRatio,
+          CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoNonLinStretchRatio);
       CLog::Log(LOGDEBUG, "GL: Enabling non-linear stretch");
     }
     else
     {
       m_nonLinStretch = false;
+      m_cachedNonLinStretch = 1.0f;
       CLog::Log(LOGDEBUG, "GL: Disabling non-linear stretch");
     }
   }
@@ -1057,9 +1062,7 @@ void CLinuxRendererGL::RenderSinglePass(int index, int field)
   if (appPlayer->IsInMenu())
     m_pYUVShader->SetNonLinStretch(1.0);
   else
-    m_pYUVShader->SetNonLinStretch(pow(
-        CDisplaySettings::GetInstance().GetPixelRatio(),
-        CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoNonLinStretchRatio));
+    m_pYUVShader->SetNonLinStretch(m_cachedNonLinStretch);
 
   if (field == FIELD_TOP)
     m_pYUVShader->SetField(1);
@@ -1421,9 +1424,7 @@ void CLinuxRendererGL::RenderFromFBO()
   if (appPlayer->IsInMenu())
     m_pVideoFilterShader->SetNonLinStretch(1.0);
   else
-    m_pVideoFilterShader->SetNonLinStretch(pow(
-        CDisplaySettings::GetInstance().GetPixelRatio(),
-        CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoNonLinStretchRatio));
+    m_pVideoFilterShader->SetNonLinStretch(m_cachedNonLinStretch);
 
   m_pVideoFilterShader->SetMatrices(glMatrixProject.Get(), glMatrixModview.Get());
   m_pVideoFilterShader->Enable();
@@ -1569,9 +1570,7 @@ void CLinuxRendererGL::RenderRGB(int index, int field)
   if (appPlayer->IsInMenu())
     m_pVideoFilterShader->SetNonLinStretch(1.0);
   else
-    m_pVideoFilterShader->SetNonLinStretch(pow(
-        CDisplaySettings::GetInstance().GetPixelRatio(),
-        CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoNonLinStretchRatio));
+    m_pVideoFilterShader->SetNonLinStretch(m_cachedNonLinStretch);
 
   m_pVideoFilterShader->SetMatrices(glMatrixProject.Get(), glMatrixModview.Get());
   m_pVideoFilterShader->Enable();

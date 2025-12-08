@@ -222,6 +222,7 @@ protected:
   bool m_nonLinStretch = false;
   bool m_nonLinStretchGui = false;
   float m_pixelRatio = 0.0f;
+  float m_cachedNonLinStretch = 1.0f; // Cached pow() result for non-linear stretch
   CRect m_viewRect;
 
   // color management

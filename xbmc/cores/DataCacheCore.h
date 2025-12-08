@@ -17,6 +17,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -255,7 +256,7 @@ protected:
   std::atomic_bool m_AVChangeExtended = false;
   std::atomic_bool m_hasAVInfoChanges = false;
 
-  CCriticalSection m_videoPlayerSection;
+  mutable std::shared_mutex m_videoPlayerSection;
   struct SPlayerVideoInfo
   {
     std::string decoderName;
@@ -290,7 +291,7 @@ protected:
     int queueDataLevel = 0;
   } m_playerVideoInfo;
 
-  CCriticalSection m_audioPlayerSection;
+  mutable std::shared_mutex m_audioPlayerSection;
   struct SPlayerAudioInfo
   {
     std::string decoderName;
@@ -302,7 +303,7 @@ protected:
     int queueDataLevel = 0;
   } m_playerAudioInfo;
 
-  mutable CCriticalSection m_contentSection;
+  mutable std::shared_mutex m_contentSection;
   struct SContentInfo
   {
   public:
@@ -382,14 +383,14 @@ protected:
     std::vector<int64_t> m_sceneMarkers;
   } m_contentInfo;
 
-  CCriticalSection m_renderSection;
+  mutable std::shared_mutex m_renderSection;
   struct SRenderInfo
   {
     bool m_isClockSync;
     double pts = 0;
   } m_renderInfo;
 
-  mutable CCriticalSection m_stateSection;
+  mutable std::shared_mutex m_stateSection;
   bool m_playerStateChanged = false;
   struct SStateInfo
   {
