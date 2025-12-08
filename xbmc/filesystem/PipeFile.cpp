@@ -166,10 +166,16 @@ std::string CPipeFile::GetName() const
 
 void CPipeFile::OnPipeOverFlow()
 {
-  std::lock_guard lock(m_lock);
+  // Copy listeners under lock, then call outside to prevent deadlocks
+  std::vector<IPipeListener*> listenersCopy;
+  {
+    std::lock_guard lock(m_lock);
+    listenersCopy = m_listeners;
+  }
 
-  for (size_t l=0; l<m_listeners.size(); l++)
-    m_listeners[l]->OnPipeOverFlow();
+  // Call listeners outside of lock to prevent deadlocks
+  for (auto* listener : listenersCopy)
+    listener->OnPipeOverFlow();
 }
 
 int64_t	CPipeFile::GetAvailableRead()
@@ -179,8 +185,16 @@ int64_t	CPipeFile::GetAvailableRead()
 
 void CPipeFile::OnPipeUnderFlow()
 {
-  for (size_t l=0; l<m_listeners.size(); l++)
-    m_listeners[l]->OnPipeUnderFlow();
+  // Copy listeners under lock, then call outside to prevent deadlocks
+  std::vector<IPipeListener*> listenersCopy;
+  {
+    std::lock_guard lock(m_lock);
+    listenersCopy = m_listeners;
+  }
+
+  // Call listeners outside of lock to prevent deadlocks
+  for (auto* listener : listenersCopy)
+    listener->OnPipeUnderFlow();
 }
 
 void CPipeFile::AddListener(IPipeListener *l)

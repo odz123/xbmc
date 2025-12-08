@@ -95,9 +95,17 @@ public:
   template<typename A>
   void HandleEvent(A event)
   {
-    std::lock_guard lock(this->m_criticalSection);
+    // Copy subscriptions while holding the lock, then release before calling
+    // handlers to prevent deadlocks if handlers try to subscribe/unsubscribe
+    // or access other locked resources
+    std::vector<std::shared_ptr<detail::ISubscription<Event>>> subscriptionsCopy;
+    {
+      std::lock_guard lock(this->m_criticalSection);
+      subscriptionsCopy = this->m_subscriptions;
+    }
 
-    for (const auto& subscription : this->m_subscriptions)
+    // Call handlers outside of lock to prevent deadlocks
+    for (const auto& subscription : subscriptionsCopy)
     {
       subscription->HandleEvent(event);
     }
