@@ -1129,7 +1129,7 @@ void CVideoPlayerVideo::CalcFrameRate()
   if (m_ptsTracker.VFRDetection())
     frameduration = m_ptsTracker.GetMinFrameDuration();
 
-  if ((frameduration == DVD_NOPTS_VALUE) ||
+  if ((frameduration == DVD_NOPTS_VALUE) || (frameduration <= 0) ||
       ((CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_videoFpsDetect == 1) &&
        ((m_ptsTracker.GetPatternLength() > 1) && !m_ptsTracker.VFRDetection())))
   {
