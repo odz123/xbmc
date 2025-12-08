@@ -7,9 +7,12 @@ set -e  # Exit on first error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
+BUILD_TYPE="${BUILD_TYPE:-Release}"
+
 echo "=== Kodi Build and Test Script ==="
 echo "Source directory: ${SCRIPT_DIR}"
 echo "Build directory: ${BUILD_DIR}"
+echo "Build type: ${BUILD_TYPE} (set BUILD_TYPE=Debug for debug builds)"
 
 # Function to install dependencies
 install_dependencies() {
@@ -87,7 +90,7 @@ configure_build() {
         -DENABLE_INTERNAL_FSTRCMP=ON \
         -DENABLE_UPNP=ON \
         -DENABLE_PYTHON=ON \
-        -DCMAKE_BUILD_TYPE=Debug
+        -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
 
     echo "Configuration complete."
 }
