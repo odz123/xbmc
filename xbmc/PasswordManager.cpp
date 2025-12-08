@@ -58,16 +58,18 @@ bool CPasswordManager::AuthenticateURL(CURL &url)
 
 bool CPasswordManager::PromptToAuthenticateURL(CURL &url)
 {
-  std::lock_guard lock(m_critSection);
-
+  // Extract data needed for the dialog outside the lock to prevent deadlock
+  // GUI dialogs can trigger callbacks that may need to acquire locks
   std::string passcode;
   std::string username = url.GetUserName();
   std::string domain = url.GetDomain();
   if (!domain.empty())
     username = domain + '\\' + username;
+  std::string urlWithoutUserDetails = url.GetWithoutUserDetails();
 
+  // Show dialog without holding the lock to prevent deadlock
   bool saveDetails = false;
-  if (!CGUIDialogLockSettings::ShowAndGetUserAndPassword(username, passcode, url.GetWithoutUserDetails(), &saveDetails))
+  if (!CGUIDialogLockSettings::ShowAndGetUserAndPassword(username, passcode, urlWithoutUserDetails, &saveDetails))
     return false;
 
   // domain/name to domain\name

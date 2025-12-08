@@ -157,11 +157,16 @@ void CAnnouncementManager::DoAnnounce(AnnouncementFlag flag,
 {
   CLog::Log(LOGDEBUG, LOGANNOUNCE, "CAnnouncementManager - Announcement: {} from {}", message, sender);
 
-  std::lock_guard lock(m_announcersCritSection);
+  // Make a copy of announcers while holding the lock, then release the lock
+  // before invoking callbacks to prevent deadlock. Announcers may be removed
+  // or even remove themselves during execution of IAnnouncer::Announce()
+  std::vector<IAnnouncer *> announcers;
+  {
+    std::lock_guard lock(m_announcersCritSection);
+    announcers = m_announcers;
+  }
 
-  // Make a copy of announcers. They may be removed or even remove themselves during execution of IAnnouncer::Announce()!
-
-  std::vector<IAnnouncer *> announcers(m_announcers);
+  // Invoke callbacks outside of lock to prevent deadlock
   for (unsigned int i = 0; i < announcers.size(); i++)
     announcers[i]->Announce(flag, sender, message, data);
 }

@@ -103,7 +103,7 @@ bool CRetroPlayer::OpenFile(const CFileItem& file, const CPlayerOptions& options
   m_guiMessenger = std::make_unique<CGUIGameMessenger>(*m_processInfo);
   m_renderManager = std::make_unique<CRPRenderManager>(*m_processInfo);
 
-  std::lock_guard lock(m_mutex);
+  std::unique_lock lock(m_mutex);
 
   if (IsPlaying())
     CloseFile();
@@ -171,12 +171,24 @@ bool CRetroPlayer::OpenFile(const CFileItem& file, const CPlayerOptions& options
         if (CServiceBroker::GetAddonMgr().GetAddon(save->GameClientID(), addon,
                                                    ADDON::OnlyEnabled::CHOICE_YES))
         {
+          // Collect information needed for the dialog
+          std::string addonName = addon->Name();
+
+          // Release lock before showing dialog to prevent deadlock
+          // GUI dialogs can trigger callbacks that may need to acquire locks
+          lock.unlock();
+
           // Warn the user that continuing with a different game client will
           // overwrite the save
           bool dummy;
-          if (!CGUIDialogYesNo::ShowAndGetInput(
-                  438, StringUtils::Format(g_localizeStrings.Get(35217), addon->Name()), dummy, 222,
-                  35218, 0))
+          bool userConfirmed = CGUIDialogYesNo::ShowAndGetInput(
+                  438, StringUtils::Format(g_localizeStrings.Get(35217), addonName), dummy, 222,
+                  35218, 0);
+
+          // Reacquire lock after dialog
+          lock.lock();
+
+          if (!userConfirmed)
             bSuccess = false;
         }
       }
